@@ -20,15 +20,17 @@ class OpenAiCompatLlmTest {
 
     private val requests = mutableListOf<JsonObject>()
     private var acceptsSchema = true
+    private var schemaStatus = 400
+    private var alwaysFail = false
     private var reply = """{"summary":"ok"}"""
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
         createContext("/v1/chat/completions") { ex ->
             val body = Json.parseToJsonElement(ex.requestBody.readBytes().decodeToString()).jsonObject
             requests += body
             val format = body["response_format"]?.jsonObject?.get("type")?.jsonPrimitive?.content
-            if (format == "json_schema" && !acceptsSchema) {
-                val err = """{"error":{"message":"response_format json_schema not supported"}}""".toByteArray()
-                ex.sendResponseHeaders(400, err.size.toLong())
+            if (alwaysFail || (format == "json_schema" && !acceptsSchema)) {
+                val err = """{"error":"llama-server process has terminated: exit status 1"}""".toByteArray()
+                ex.sendResponseHeaders(if (alwaysFail) 500 else schemaStatus, err.size.toLong())
                 ex.responseBody.use { it.write(err) }
                 return@createContext
             }
@@ -102,5 +104,20 @@ class OpenAiCompatLlmTest {
         val dead = OpenAiCompatLlm(ServerSettings(baseUrl = "http://127.0.0.1:1/v1"))
         val e = assertFailsWith<LlmException> { dead.json(request, Schemas.chronicle) }
         assertTrue("не отвечает" in e.message!!, e.message)
+    }
+
+    @Test
+    fun `a server that crashes on the schema is retried in a simpler mode`() = runBlocking<Unit> {
+        acceptsSchema = false
+        schemaStatus = 500
+        assertEquals("""{"summary":"ok"}""", llm.json(request, Schemas.chronicle))
+        assertEquals("json_object", requests.last()["response_format"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `a crashing model gets a helpful message`() = runBlocking<Unit> {
+        alwaysFail = true
+        val e = assertFailsWith<LlmException> { llm.json(request, Schemas.chronicle) }
+        assertTrue("Termux" in e.message!!, e.message)
     }
 }

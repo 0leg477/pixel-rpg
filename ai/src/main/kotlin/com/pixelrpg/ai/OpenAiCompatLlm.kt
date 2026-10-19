@@ -78,8 +78,10 @@ class OpenAiCompatLlm(private val server: ServerSettings) : LlmClient {
                 }
                 return@withContext stripThinking(content)
             } catch (e: HttpError) {
-                // Сервер не понял response_format — пробуем попроще.
-                if (e.code in 400..422 && mode != JsonMode.PROMPT && e.code != 401 && e.code != 403 && e.code != 404) {
+                // Сервер не понял response_format (4xx) или упал на сложной грамматике схемы (5xx) — пробуем попроще.
+                val formatProblem = e.code in 400..422 && e.code != 401 && e.code != 403 && e.code != 404
+                val crashedOnSchema = e.code >= 500 && mode == JsonMode.SCHEMA
+                if ((formatProblem || crashedOnSchema) && mode != JsonMode.PROMPT) {
                     jsonMode = if (mode == JsonMode.SCHEMA) JsonMode.OBJECT else JsonMode.PROMPT
                     continue
                 }
@@ -214,6 +216,11 @@ class OpenAiCompatLlm(private val server: ServerSettings) : LlmClient {
             )
             e is HttpError && (e.code == 401 || e.code == 403) -> LlmException("Сервер ИИ не принял ключ.", retryable = false, e)
             e is HttpError && e.code == 429 -> LlmException("Сервер ИИ просит подождать (лимит запросов).", retryable = true, e)
+            e is HttpError && e.code >= 500 && detail?.contains("terminated") == true -> LlmException(
+                "Модель упала на сервере ($detail). Обычно не хватает памяти или модель не запускается на этом устройстве: " +
+                    "посмотри ошибку в окне Termux с «ollama serve» и попробуй модель поменьше (например qwen2.5:1.5b).",
+                retryable = true, e,
+            )
             e is HttpError -> LlmException("Сервер ИИ ответил ошибкой ${e.code}${detail?.let { ": $it" } ?: ""}", retryable = e.code >= 500, e)
             else -> LlmException("Нет связи с сервером ИИ: ${e.message}", retryable = true, e)
         }
