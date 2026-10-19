@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixelrpg.ai.AiSettings
+import com.pixelrpg.ai.Backend
+import com.pixelrpg.ai.ServerSettings
 import com.pixelrpg.ai.LlmTask
 import com.pixelrpg.ai.image.ImageProvider
 import com.pixelrpg.ai.image.PaletteMode
@@ -37,6 +41,7 @@ import com.pixelrpg.app.AppViewModel
 import com.pixelrpg.app.Screen
 import com.pixelrpg.app.ui.components.ButtonKind
 import com.pixelrpg.app.ui.components.PixelButton
+import com.pixelrpg.app.ui.components.PixelChip
 import com.pixelrpg.app.ui.components.PixelDivider
 import com.pixelrpg.app.ui.components.PixelLabel
 import com.pixelrpg.app.ui.components.PixelPanel
@@ -71,9 +76,9 @@ fun MenuScreen(vm: AppViewModel) {
         PixelText("бесконечная текстовая RPG", style = s.small)
         Spacer(Modifier.height(32.dp))
 
-        if (!vm.hasKey) {
-            PixelPanel(Modifier.fillMaxWidth(), title = "Нужен ключ") {
-                PixelText("Чтобы мир ожил, добавь API-ключ Claude в настройках.", style = s.small.copy(color = s.c.text))
+        if (!vm.aiReady) {
+            PixelPanel(Modifier.fillMaxWidth(), title = "Нужен ИИ") {
+                PixelText("Чтобы мир ожил, подключи ИИ в настройках: ключ Claude или свой сервер с моделью (бесплатно).", style = s.small.copy(color = s.c.text))
                 Spacer(Modifier.height(8.dp))
                 PixelButton("Открыть настройки", { vm.go(Screen.SETTINGS) }, Modifier.fillMaxWidth(), kind = ButtonKind.PRIMARY)
             }
@@ -166,14 +171,21 @@ fun SettingsScreen(vm: AppViewModel) {
         }
         Spacer(Modifier.height(16.dp))
 
-        PixelPanel(Modifier.fillMaxWidth(), title = "Claude API") {
-            PixelText("Ключ хранится только на этом телефоне, в зашифрованном виде. Получить: console.anthropic.com", style = s.small)
-            Spacer(Modifier.height(8.dp))
-            PixelTextField(key, { key = it }, Modifier.fillMaxWidth(), placeholder = "sk-ant-…", password = !showKey)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PixelButton(if (showKey) "Скрыть" else "Показать", { showKey = !showKey }, small = true)
-                PixelButton("Сохранить ключ", { vm.saveAi(ai.copy(apiKey = key)) }, Modifier.weight(1f), kind = ButtonKind.PRIMARY, small = true, enabled = key != ai.apiKey)
+        PixelPanel(Modifier.fillMaxWidth(), title = "Где работает ИИ") {
+            PixelSelector("Источник", Backend.entries, ai.backend, { it.title }, { vm.saveAi(ai.copy(backend = it)) })
+            Spacer(Modifier.height(6.dp))
+            when (ai.backend) {
+                Backend.CLAUDE -> {
+                    PixelText("Ключ хранится только на этом телефоне, в зашифрованном виде. Получить: console.anthropic.com", style = s.small)
+                    Spacer(Modifier.height(8.dp))
+                    PixelTextField(key, { key = it }, Modifier.fillMaxWidth(), placeholder = "sk-ant-…", password = !showKey)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PixelButton(if (showKey) "Скрыть" else "Показать", { showKey = !showKey }, small = true)
+                        PixelButton("Сохранить ключ", { vm.saveAi(ai.copy(apiKey = key)) }, Modifier.weight(1f), kind = ButtonKind.PRIMARY, small = true, enabled = key != ai.apiKey)
+                    }
+                }
+                Backend.SERVER -> ServerSettingsPanel(vm, ai)
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -200,19 +212,79 @@ fun SettingsScreen(vm: AppViewModel) {
         ImageSettingsPanel(vm)
         Spacer(Modifier.height(14.dp))
 
-        PixelPanel(Modifier.fillMaxWidth(), title = "Модели ИИ") {
-            PixelText("Для каждой задачи можно выбрать свою модель. Haiku — быстрее и дешевле, Sonnet и Opus — умнее и дороже.", style = s.small)
-            Spacer(Modifier.height(6.dp))
-            LlmTask.entries.forEach { task ->
-                val cfg = ai.config(task)
-                PixelSelector(
-                    task.title, AiSettings.MODELS.map { it.first }, cfg.model,
-                    { id -> AiSettings.MODELS.firstOrNull { it.first == id }?.second ?: id },
-                    { vm.saveAi(ai.copy(tasks = ai.tasks + (task to cfg.copy(model = it)))) },
-                )
+        if (ai.backend == Backend.CLAUDE) {
+            PixelPanel(Modifier.fillMaxWidth(), title = "Модели ИИ") {
+                PixelText("Для каждой задачи можно выбрать свою модель. Haiku — быстрее и дешевле, Sonnet и Opus — умнее и дороже.", style = s.small)
+                Spacer(Modifier.height(6.dp))
+                LlmTask.entries.forEach { task ->
+                    val cfg = ai.config(task)
+                    PixelSelector(
+                        task.title, AiSettings.MODELS.map { it.first }, cfg.model,
+                        { id -> AiSettings.MODELS.firstOrNull { it.first == id }?.second ?: id },
+                        { vm.saveAi(ai.copy(tasks = ai.tasks + (task to cfg.copy(model = it)))) },
+                    )
+                }
             }
         }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+/** Готовые адреса для популярных серверов. */
+private val SERVER_PRESETS = listOf(
+    "Телефон (Ollama в Termux)" to "http://127.0.0.1:11434/v1",
+    "ПК: Ollama" to "http://192.168.1.10:11434/v1",
+    "ПК: LM Studio" to "http://192.168.1.10:1234/v1",
+    "OpenRouter" to "https://openrouter.ai/api/v1",
+)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ServerSettingsPanel(vm: AppViewModel, ai: AiSettings) {
+    val s = Px.style
+    val check by vm.serverCheck.collectAsStateWithLifecycle()
+    var url by remember(ai.server.baseUrl) { mutableStateOf(ai.server.baseUrl) }
+    var model by remember(ai.server.model) { mutableStateOf(ai.server.model) }
+    var key by remember(ai.server.apiKey) { mutableStateOf(ai.server.apiKey) }
+    val edited = ServerSettings(url.trim(), model.trim(), key.trim(), ai.server.compact)
+    PixelText(
+        "Любая программа с OpenAI-совместимым API: Ollama или llama.cpp на телефоне, Ollama или LM Studio на компьютере, облачные сервисы.",
+        style = s.small,
+    )
+    Spacer(Modifier.height(6.dp))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SERVER_PRESETS.forEach { (title, preset) -> PixelChip(title, s.c.accent2) { url = preset } }
+    }
+    Spacer(Modifier.height(8.dp))
+    PixelText("Адрес сервера:", style = s.small)
+    PixelTextField(url, { url = it }, Modifier.fillMaxWidth(), placeholder = "http://127.0.0.1:11434/v1")
+    Spacer(Modifier.height(6.dp))
+    PixelText("Модель:", style = s.small)
+    PixelTextField(model, { model = it }, Modifier.fillMaxWidth(), placeholder = "qwen2.5:3b")
+    Spacer(Modifier.height(6.dp))
+    PixelText("Ключ (если сервер просит):", style = s.small)
+    PixelTextField(key, { key = it }, Modifier.fillMaxWidth(), placeholder = "не нужен для Ollama и LM Studio", password = true)
+    Spacer(Modifier.height(4.dp))
+    PixelToggle("Компактный режим (для маленьких моделей)", ai.server.compact, { vm.saveAi(ai.copy(server = edited.copy(compact = it))) })
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PixelButton("Проверить связь", { vm.checkServer(edited) }, small = true)
+        PixelButton("Сохранить", { vm.saveAi(ai.copy(server = edited)) }, Modifier.weight(1f), kind = ButtonKind.PRIMARY, small = true, enabled = edited != ai.server)
+    }
+    check?.let { result ->
+        Spacer(Modifier.height(8.dp))
+        PixelText(
+            result.text,
+            style = s.small.copy(color = when (result.ok) { true -> s.c.good; false -> s.c.bad; null -> s.c.dim }),
+        )
+        if (result.models.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            PixelText("Модели на сервере (нажми, чтобы выбрать):", style = s.small)
+            Spacer(Modifier.height(4.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                result.models.take(20).forEach { m -> PixelChip(m, if (m == model) s.c.accent else s.c.text) { model = m } }
+            }
+        }
     }
 }
 

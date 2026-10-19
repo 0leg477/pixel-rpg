@@ -22,11 +22,40 @@ enum class Effort { LOW, MEDIUM, HIGH }
 @Serializable
 data class TaskConfig(val model: String, val effort: Effort)
 
+/** Где работает ИИ. */
+@Serializable
+enum class Backend(val title: String) {
+    CLAUDE("Claude (API-ключ)"),
+    SERVER("Свой сервер (бесплатно)"),
+}
+
+/**
+ * Любой сервер с OpenAI-совместимым API: Ollama или llama.cpp на телефоне (Termux),
+ * LM Studio или Ollama на компьютере, бесплатные облачные сервисы.
+ */
+@Serializable
+data class ServerSettings(
+    val baseUrl: String = "http://127.0.0.1:11434/v1",
+    val model: String = "qwen2.5:3b",
+    val apiKey: String = "",
+    /** Короткие подсказки и ответы — для маленьких моделей на телефоне. */
+    val compact: Boolean = true,
+)
+
 @Serializable
 data class AiSettings(
     val apiKey: String = "",
     val tasks: Map<LlmTask, TaskConfig> = DEFAULTS,
+    val backend: Backend = Backend.CLAUDE,
+    val server: ServerSettings = ServerSettings(),
 ) {
+    /** Готов ли ИИ к игре: для Claude нужен ключ, для своего сервера — адрес и модель. */
+    val ready: Boolean
+        get() = when (backend) {
+            Backend.CLAUDE -> apiKey.isNotBlank()
+            Backend.SERVER -> server.baseUrl.isNotBlank() && server.model.isNotBlank()
+        }
+
     fun config(task: LlmTask): TaskConfig = tasks[task] ?: DEFAULTS.getValue(task)
 
     companion object {
@@ -60,6 +89,9 @@ data class LlmRequest(
 )
 
 interface LlmClient {
+    /** Маленькая модель: игре нужно писать ей короче и просить меньше. */
+    val compact: Boolean get() = false
+
     /** Ответ строго по JSON-схеме; возвращает текст JSON. */
     suspend fun json(request: LlmRequest, schema: JsonObject): String
 

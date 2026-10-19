@@ -6,6 +6,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pixelrpg.ai.AiSettings
 import com.pixelrpg.ai.AnthropicLlm
+import com.pixelrpg.ai.Backend
+import com.pixelrpg.ai.LlmException
+import com.pixelrpg.ai.OpenAiCompatLlm
+import com.pixelrpg.ai.ServerSettings
 import com.pixelrpg.ai.GameMaster
 import com.pixelrpg.ai.image.ImageSettings
 import com.pixelrpg.ai.image.ScenePainter
@@ -26,6 +30,9 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 enum class Screen { MENU, WORLDS, SETTINGS, WORKSHOP, GAME }
+
+/** Результат проверки связи с сервером ИИ; [ok] = null — проверка ещё идёт. */
+data class ServerCheck(val text: String, val models: List<String>, val ok: Boolean?)
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val storage = Storage(app)
@@ -55,10 +62,40 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
 
-    val hasKey: Boolean get() = _ai.value.apiKey.isNotBlank()
+    /** ИИ настроен: есть ключ Claude или адрес своего сервера. */
+    val aiReady: Boolean get() = _ai.value.ready
+
+    private val _serverCheck = MutableStateFlow<ServerCheck?>(null)
+    val serverCheck: StateFlow<ServerCheck?> = _serverCheck
     val hasDraft: Boolean get() = storage.loadDraft().let { it.canon != null || it.worldText.isNotBlank() }
 
-    private fun master() = GameMaster(AnthropicLlm(_ai.value))
+    private fun master() = GameMaster(
+        when (_ai.value.backend) {
+            Backend.CLAUDE -> AnthropicLlm(_ai.value)
+            Backend.SERVER -> OpenAiCompatLlm(_ai.value.server)
+        },
+    )
+
+    /** «Проверить связь»: спрашиваем у сервера список моделей. */
+    fun checkServer(server: ServerSettings) {
+        _serverCheck.value = ServerCheck("Проверяю…", emptyList(), ok = null)
+        viewModelScope.launch {
+            _serverCheck.value = try {
+                val models = OpenAiCompatLlm(server).listModels()
+                val hasModel = models.isEmpty() || models.any { it == server.model || it.startsWith(server.model + ":") }
+                ServerCheck(
+                    when {
+                        models.isEmpty() -> "Связь есть."
+                        hasModel -> "Связь есть, модель «${server.model}» на месте."
+                        else -> "Связь есть, но модели «${server.model}» на сервере нет. Выбери из списка или скачай её."
+                    },
+                    models, ok = hasModel,
+                )
+            } catch (e: LlmException) {
+                ServerCheck(e.message ?: "Нет связи", emptyList(), ok = false)
+            }
+        }
+    }
 
     /** Художник сцен — только если выбран сервис картинок и задан ключ. */
     private fun painter(): ScenePainter? {

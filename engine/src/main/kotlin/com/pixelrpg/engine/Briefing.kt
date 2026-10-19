@@ -149,6 +149,58 @@ object Briefing {
         chronicle(state), quests(state), hero(state), scene(state, master), recent(state, recentEntries),
     ).filter { it.isNotBlank() }.joinToString("\n\n")
 
+    // ---------- Сжатые сводки для маленьких моделей ----------
+
+    /** Канон без описаний и примеров: только то, на что модель может сослаться. */
+    fun canonCompact(c: Canon): String = buildString {
+        appendLine("# МИР: ${c.title}. ${c.pitch.take(300)}")
+        appendLine("Тон: ${c.tone}. Стиль: ${c.narratorStyle.take(200)}")
+        if (c.laws.isNotEmpty()) appendLine("Законы: " + c.laws.take(6).joinToString("; "))
+        if (c.impossible.isNotEmpty()) appendLine("Не бывает: " + c.impossible.joinToString("; "))
+        appendLine("Навыки (id): " + c.skills.joinToString("; ") { "${it.id}=${it.name}" + if (it.tags.isNotEmpty()) " [${it.tags.joinToString(",")}]" else "" })
+        appendLine("Ресурсы (id): " + c.resources.joinToString("; ") { "${it.id}=${it.name}" })
+        appendLine("Состояния (id): " + CanonValidator.conditionsOf(c).joinToString("; ") { "${it.id}=${it.name}" })
+        if (c.factions.isNotEmpty()) appendLine("Фракции (id): " + c.factions.joinToString("; ") { "${it.id}=${it.name}" })
+        if (c.rules.isNotEmpty()) appendLine("Правила мира: " + c.rules.joinToString("; ") { it.name })
+        append("Валюта: ${c.currency.name}.")
+    }
+
+    /** Короткая сводка хода: сцена, герой, задания, последние реплики. */
+    fun compact(state: GameState, master: Boolean, recentEntries: Int = 3): String = buildString {
+        val loc = state.location
+        val h = state.hero
+        val c = state.canon
+        appendLine("ВРЕМЯ: ${time(state)}")
+        appendLine("МЕСТО [${loc.id}] ${loc.name}, опасность ${loc.danger}/10. ${loc.description.take(300)}")
+        if (loc.features.isNotEmpty()) appendLine("Детали: " + loc.features.takeLast(3).joinToString("; "))
+        val exits = loc.exits.filter { !it.hidden || master }
+        if (exits.isNotEmpty()) appendLine("Выходы: " + exits.joinToString("; ") { "[${it.id}] ${it.name}" })
+        if (loc.items.isNotEmpty()) appendLine("Предметы здесь: " + loc.items.joinToString("; ") { "[${it.id}] ${it.name}" })
+        val npcs = state.npcsHere()
+        if (npcs.isEmpty()) appendLine("Рядом никого.")
+        npcs.forEach { n ->
+            append("ПЕРСОНАЖ [${n.id}] ${n.name} — ${n.role}, ${TurnResolver.attitudeWord(n.attitude)}")
+            if (n.hostile) append(", ВРАГ (${TurnResolver.woundWord(n)})")
+            if (n.speech.isNotBlank()) append(". Речь: ${n.speech.take(80)}")
+            if (master && n.knowledge.isNotEmpty()) append(". Знает: ${n.knowledge.take(2).joinToString(" | ") { it.take(120) }}")
+            n.memories.lastOrNull()?.let { append(". Помнит: ${it.text.take(100)}") }
+            appendLine()
+        }
+        state.combat?.let { appendLine("ИДЁТ БОЙ.") }
+        appendLine("ГЕРОЙ: ${h.name} — ${h.concept}. " + c.resources.joinToString(", ") { r -> h.resources[r.id]?.let { "${r.name} ${it.current}/${it.max}" } ?: "" } +
+            ". Деньги ${h.money}.")
+        if (h.conditions.isNotEmpty()) appendLine("Состояния: " + h.conditions.joinToString(", ") { it.id })
+        appendLine("Вещи: " + if (h.inventory.isEmpty()) "нет" else h.inventory.joinToString("; ") { "[${it.id}] ${it.name}" + if (it.equipped) "*" else "" })
+        val active = state.quests.filter { it.status == QuestStatus.ACTIVE }
+        if (active.isNotEmpty()) appendLine("Задания: " + active.joinToString("; ") { "[${it.id}] ${it.title}" })
+        state.chronicle.lastOrNull()?.let { appendLine("Ранее: ${it.summary.take(400)}") }
+        val recent = state.log.filter { it.kind == LogKind.PLAYER || it.kind == LogKind.STORY }.takeLast(recentEntries)
+        if (recent.isNotEmpty()) {
+            appendLine("НЕДАВНО:")
+            recent.forEach { e -> appendLine(if (e.kind == LogKind.PLAYER) "> ${e.text.take(200)}" else e.text.take(350)) }
+        }
+    }
+
     private fun signed(v: Int) = if (v >= 0) "+$v" else "$v"
 
     private fun kindWord(k: String) = when (k) {

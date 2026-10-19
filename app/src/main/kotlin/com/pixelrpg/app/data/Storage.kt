@@ -100,12 +100,19 @@ class SettingsStore(context: Context) {
     fun ai(): AiSettings {
         val base = prefs.getString("ai", null)
             ?.let { runCatching { json.decodeFromString(AiSettings.serializer(), it) }.getOrNull() } ?: AiSettings()
-        return base.copy(apiKey = secrets.getString("api_key", "") ?: "")
+        return base.copy(
+            apiKey = secrets.getString("api_key", "") ?: "",
+            server = base.server.copy(apiKey = secrets.getString("server_key", "") ?: ""),
+        )
     }
 
     fun saveAi(s: AiSettings) {
-        prefs.edit().putString("ai", json.encodeToString(AiSettings.serializer(), s.copy(apiKey = ""))).apply()
-        secrets.edit().putString("api_key", s.apiKey.trim()).apply()
+        val public = s.copy(apiKey = "", server = s.server.copy(apiKey = ""))
+        prefs.edit().putString("ai", json.encodeToString(AiSettings.serializer(), public)).apply()
+        secrets.edit()
+            .putString("api_key", s.apiKey.trim())
+            .putString("server_key", s.server.apiKey.trim())
+            .apply()
     }
 
     fun images(): ImageSettings {

@@ -31,7 +31,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** Подставной ИИ: отвечает заранее заготовленным JSON и текстом. */
-class FakeLlm : LlmClient {
+class FakeLlm(override val compact: Boolean = false) : LlmClient {
     val requests = mutableListOf<LlmRequest>()
     val adjudications = ArrayDeque<Adjudication>()
     var narration = "Ветер треплет вывеску таверны. Ты стоишь у ворот.\n### ВАРИАНТЫ\n- Зайти в таверну\n- Расспросить стражника\n- Уйти на север"
@@ -170,5 +170,22 @@ class GameMasterTest {
     fun `suggestions parser tolerates formatting`() {
         val s = GameMaster.parseSuggestions("текст\n### ВАРИАНТЫ\n- **Бежать**\n• Драться\n\n- Ждать")
         assertEquals(listOf("Бежать", "Драться", "Ждать"), s)
+    }
+
+    @Test
+    fun `compact mode sends much shorter prompts`() = runTest {
+        suspend fun turnSizes(compact: Boolean): Pair<Int, Int> {
+            val llm = FakeLlm(compact)
+            val state = newGame(llm)
+            llm.adjudications += Adjudication(action = "look", summary = "осматривается")
+            GameMaster(llm).playTurn(state, "осматриваюсь").toList()
+            val adj = llm.requests.first { it.task == LlmTask.ADJUDICATE }
+            val nar = llm.requests.last { it.task == LlmTask.NARRATE }
+            return (adj.system.length + adj.user.length) to (nar.system.length + nar.user.length)
+        }
+        val (fullAdj, fullNar) = turnSizes(false)
+        val (shortAdj, shortNar) = turnSizes(true)
+        assertTrue(shortAdj * 2 < fullAdj, "adjudication $shortAdj vs $fullAdj")
+        assertTrue(shortNar * 2 < fullNar, "narration $shortNar vs $fullNar")
     }
 }

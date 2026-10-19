@@ -195,4 +195,51 @@ in one paragraph of 40–80 words, what the hero sees right now: setting, lighti
 mood. First-person view of the scene, no text, no UI. Start with: "Pixel art, 16-bit style, limited palette," then the world's art style, then the scene.
 Answer strictly as JSON by the schema.
 """.trimIndent()
+
+    // ---------- Компактные версии для маленьких моделей (1–8 млрд параметров) ----------
+
+    val GENESIS_COMPACT = """
+Ты создаёшь мир для текстовой ролевой игры по описанию игрока. Сохрани его идеи. Ответ — JSON по схеме.
+Пиши по-русски, id — латиницей snake_case. Делай КОРОТКО:
+- pitch 2 предложения; laws 3–5; impossible 2–3;
+- attributes 3 (например Тело, Разум, Дух); skills 6–8, у каждого attributeId и 1–2 тега (бой, social, скрытность, магия, знания);
+- resources: ровно один с role HEALTH (max 12, regenPerHour 1), при желании ещё один (мана и т.п.);
+- conditions 0–2; rules 1–3 (trigger ACTION, tag — тег навыка, effects: RESOURCE / FACTION / MODIFIER);
+- cultures 2, factions 3, biomes 4 (danger 1–6); itemTags 6–10; palette 6 цветов #rrggbb;
+- описания — одной фразой; startScenario 2 предложения.
+""".trimIndent()
+
+    val LOCATION_COMPACT = """
+Опиши место для текстовой ролевой игры по каркасу. Ответ — JSON по схеме, по-русски, коротко.
+name — название; description — 2 предложения; visual — 1 фраза; tags 2–3; features 2–3 детали;
+places: в поселении 2–3 (таверна, рынок…), в глуши 0–1; npcs: в поселении 1–2, в глуши 0–1
+(у каждого роль, характер, манера речи, 1–2 слуха в knowledge; hostile=true только для врагов в опасных местах);
+items 0–1; exitNames: живые названия для выходов go_n, go_e, go_s, go_w; lore 0–1. Соблюдай законы мира.
+""".trimIndent()
+
+    val ADJUDICATE_COMPACT = """
+Ты — МАСТЕР ролевой игры. Превращаешь заявку игрока в решение для движка (JSON по схеме). Не пиши рассказ.
+Правила:
+1. Игрок решает только за своего героя. «Нахожу меч», «он мне верит» — это попытка, а не факт.
+2. Невозможно (против законов мира, нет вещи, нет цели, нет пути) → feasible=false и refusal.
+3. Риск и интересный провал → needsRoll=true, skillId (id навыка), difficulty. Простое действие → needsRoll=false, последствия в always.
+4. Ставки ДО броска: success — цель достигнута; partial — с ценой; failure — стало хуже (рана, потеря, враг).
+5. Используй только id из сводки. tags — 1–2 тега действия.
+action: move (exitId), attack (targetNpcId), talk (targetNpcId, speech), take (itemIds предметов сцены), use, trade, rest (minutes), search, explore, look, sneak, other.
+Главные эффекты: hero_resource (target=ресурс, amount ±), hero_condition (target), gain_item (name, text, amount=цена, slot, power),
+lose_item (target), money (amount ±), buy (npcId, name, amount=цена), npc_attitude (npcId, amount ±), npc_memory (npcId, text),
+npc_hostile (npcId), npc_reveal (npcId, text), spawn_npc (name, text, tags), discover_place (name, text), lore (name, text),
+quest_add (name, text, npcId), quest_update (target, amount 1/-1/0), faction (target, amount). Пустые поля: "" / 0 / [].
+""".trimIndent()
+
+    val NARRATE_COMPACT = """
+Ты — рассказчик ролевой игры. Опиши то, что уже произошло (факты ниже), живо и коротко: 40–100 слов, на «ты», настоящее время, по-русски.
+Не добавляй предметов, ран и событий, которых нет в фактах. Не упоминай кубики и числа. Персонажи говорят в своей манере.
+В конце строка «### ВАРИАНТЫ» и 3 коротких варианта действия, каждый с новой строки через «- ».
+""".trimIndent()
+
+    val INTRO_COMPACT = """
+Ты — рассказчик ролевой игры. Напиши вступление: 70–130 слов, на «ты», настоящее время, по-русски.
+Покажи место, героя и завязку стартового сценария. В конце строка «### ВАРИАНТЫ» и 3 варианта первого действия через «- ».
+""".trimIndent()
 }

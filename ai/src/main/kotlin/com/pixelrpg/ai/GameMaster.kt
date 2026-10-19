@@ -57,9 +57,9 @@ class GameMaster(private val llm: LlmClient) {
 
     suspend fun createCanon(description: String): Canon {
         val raw = ask(
-            LlmTask.GENESIS, Prompts.GENESIS,
+            LlmTask.GENESIS, pick(Prompts.GENESIS, Prompts.GENESIS_COMPACT),
             "Описание мира от игрока:\n\n${description.trim()}",
-            Schemas.canon, Canon.serializer(), maxTokens = 16000,
+            Schemas.canon, Canon.serializer(), maxTokens = tokens(16000, 6000),
         )
         return CanonValidator.normalize(raw)
     }
@@ -68,16 +68,16 @@ class GameMaster(private val llm: LlmClient) {
         val raw = ask(
             LlmTask.GENESIS, Prompts.REFINE,
             "Текущий канон:\n${SaveCodec.json.encodeToString(Canon.serializer(), canon)}\n\nЧто изменить:\n${instruction.trim()}",
-            Schemas.canon, Canon.serializer(), maxTokens = 16000,
+            Schemas.canon, Canon.serializer(), maxTokens = tokens(16000, 6000),
         )
         return CanonValidator.normalize(raw)
     }
 
     suspend fun createHero(canon: Canon, description: String): Hero {
         val draft = ask(
-            LlmTask.HERO, Prompts.HERO + "\n\n" + Briefing.canon(canon),
+            LlmTask.HERO, system(Prompts.HERO, Prompts.HERO, canon),
             "Стартовый сценарий: ${canon.startScenario}\n\nОписание героя от игрока:\n\n${description.trim().ifBlank { "Придумай героя сам, под стартовый сценарий." }}",
-            Schemas.hero, HeroDraft.serializer(), maxTokens = 6000,
+            Schemas.hero, HeroDraft.serializer(), maxTokens = tokens(6000, 2500),
         )
         return Factory.hero(canon, draft)
     }
@@ -94,11 +94,17 @@ class GameMaster(private val llm: LlmClient) {
         val user = buildString {
             appendLine("## СТАРТОВЫЙ СЦЕНАРИЙ\n${state.canon.startScenario}")
             appendLine()
-            appendLine(Briefing.hero(state))
-            appendLine(Briefing.scene(state, master = false))
-            appendLine("Предыстория героя: ${state.hero.background}")
+            if (compact) appendLine(Briefing.compact(state, master = false)) else {
+                appendLine(Briefing.hero(state))
+                appendLine(Briefing.scene(state, master = false))
+            }
+            appendLine("Предыстория героя: ${state.hero.background.take(if (compact) 400 else 2000)}")
         }
-        narrate(state, LlmRequest(LlmTask.NARRATE, Prompts.INTRO + "\n\n" + Briefing.canon(state.canon), user, 4000), fallback = state.location.description)
+        narrate(
+            state,
+            LlmRequest(LlmTask.NARRATE, system(Prompts.INTRO, Prompts.INTRO_COMPACT, state.canon), user, tokens(4000, 900)),
+            fallback = state.location.description,
+        )
     }
 
     // ---------- Ход ----------
@@ -107,9 +113,9 @@ class GameMaster(private val llm: LlmClient) {
         emit(TurnEvent.Stage("Мастер обдумывает…"))
         val adjudication = ask(
             LlmTask.ADJUDICATE,
-            Prompts.ADJUDICATE + "\n\n" + Briefing.canon(state.canon),
-            Briefing.full(state, master = true) + "\n\n## ЗАЯВКА ИГРОКА\n" + input.trim(),
-            Schemas.adjudication, Adjudication.serializer(), maxTokens = 8000,
+            system(Prompts.ADJUDICATE, Prompts.ADJUDICATE_COMPACT, state.canon),
+            brief(state, master = true, recent = 8) + "\n\n## ЗАЯВКА ИГРОКА\n" + input.trim(),
+            Schemas.adjudication, Adjudication.serializer(), maxTokens = tokens(8000, 2000),
         )
 
         val report = TurnResolver(state).resolve(input.trim(), adjudication)
@@ -135,7 +141,7 @@ class GameMaster(private val llm: LlmClient) {
         emit(TurnEvent.Stage("Рассказчик пишет…"))
         val firstVisit = report.moved && state.log.count { it.kind == LogKind.SYSTEM && it.text == "Место: ${state.location.name}" } <= 1
         val user = buildString {
-            appendLine(Briefing.full(state, master = false, recentEntries = 6))
+            appendLine(brief(state, master = false, recent = 6))
             appendLine()
             appendLine("## ЗАЯВКА ИГРОКА\n${input.trim()}")
             if (adjudication.speech.isNotBlank()) appendLine("Герой говорит: «${adjudication.speech}»")
@@ -147,7 +153,7 @@ class GameMaster(private val llm: LlmClient) {
             if (firstVisit) appendLine("- Герой впервые здесь: опиши место.")
         }
         val fallback = (listOf(adjudication.summary) + report.facts + extraFacts).joinToString(" ")
-        narrate(state, LlmRequest(LlmTask.NARRATE, Prompts.NARRATE + "\n\n" + Briefing.canon(state.canon), user, 4000), fallback)
+        narrate(state, LlmRequest(LlmTask.NARRATE, system(Prompts.NARRATE, Prompts.NARRATE_COMPACT, state.canon), user, tokens(4000, 700)), fallback)
 
         if (state.turn - (state.chronicle.lastOrNull()?.toTurn ?: 0) >= CHAPTER_TURNS) {
             runCatching { writeChronicle(state) }
@@ -223,8 +229,8 @@ class GameMaster(private val llm: LlmClient) {
             Briefing.chronicle(state).takeIf { it.isNotBlank() }?.let(::appendLine)
         }
         val draft = ask(
-            LlmTask.LOCATION, Prompts.LOCATION + "\n\n" + Briefing.canon(state.canon), user,
-            Schemas.location, LocationDraft.serializer(), maxTokens = 8000,
+            LlmTask.LOCATION, system(Prompts.LOCATION, Prompts.LOCATION_COMPACT, state.canon), user,
+            Schemas.location, LocationDraft.serializer(), maxTokens = tokens(8000, 2500),
         )
         Factory.applyLocationDraft(state, loc, draft)
     }
@@ -236,8 +242,8 @@ class GameMaster(private val llm: LlmClient) {
             appendLine("## ГЕРОЙ: ${state.hero.name} — ${state.hero.concept}")
         }
         val draft = ask(
-            LlmTask.LOCATION, Prompts.ENCOUNTER + "\n\n" + Briefing.canon(state.canon), user,
-            Schemas.encounter, EncounterDraft.serializer(), maxTokens = 5000,
+            LlmTask.LOCATION, system(Prompts.ENCOUNTER, Prompts.ENCOUNTER, state.canon), user,
+            Schemas.encounter, EncounterDraft.serializer(), maxTokens = tokens(5000, 1500),
         )
         val loc = state.locations.getValue(enc.locationId)
         val facts = mutableListOf(draft.description)
@@ -264,7 +270,7 @@ class GameMaster(private val llm: LlmClient) {
         val text = events.joinToString("\n") { if (it.kind == LogKind.PLAYER) "> ${it.text}" else it.text }
         val result = ask(
             LlmTask.CHRONICLE, Prompts.CHRONICLE, "Герой: ${state.hero.name}.\n\n$text",
-            Schemas.chronicle, Summary.serializer(), maxTokens = 3000,
+            Schemas.chronicle, Summary.serializer(), maxTokens = tokens(3000, 800),
         )
         state.chronicle += Chapter(from, state.turn, result.summary.take(1500))
     }
@@ -281,6 +287,25 @@ class GameMaster(private val llm: LlmClient) {
     }
 
     // ---------- Общее ----------
+
+    /** Маленькой модели — короткие подсказки, сжатые сводки и меньше текста в ответ. */
+    private val compact: Boolean get() = llm.compact
+
+    private fun pick(full: String, short: String) = if (compact) short else full
+
+    private fun tokens(full: Int, short: Int) = if (compact) short else full
+
+    private fun canonText(canon: Canon) = if (compact) Briefing.canonCompact(canon) else Briefing.canon(canon)
+
+    /**
+     * Системная подсказка. Маленьким моделям канон ставим ПЕРВЫМ: у мастера и рассказчика
+     * он одинаковый, и локальный сервер не пересчитывает общее начало заново — это заметно быстрее.
+     */
+    private fun system(full: String, short: String, canon: Canon) =
+        if (compact) canonText(canon) + "\n\n" + short else full + "\n\n" + canonText(canon)
+
+    private fun brief(state: GameState, master: Boolean, recent: Int) =
+        if (compact) Briefing.compact(state, master) else Briefing.full(state, master, recent)
 
     /** Запрос со схемой; при испорченном JSON — одна повторная попытка. */
     private suspend fun <T> ask(task: LlmTask, system: String, user: String, schema: JsonObject, serializer: KSerializer<T>, maxTokens: Int): T {
