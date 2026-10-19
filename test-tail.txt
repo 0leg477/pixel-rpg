@@ -1,0 +1,36 @@
+Starting a Gradle Daemon (subsequent builds will be faster)
+> Task :engine:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :ai:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :ai:processResources NO-SOURCE
+> Task :ai:processTestResources NO-SOURCE
+> Task :engine:processResources NO-SOURCE
+> Task :engine:processTestResources NO-SOURCE
+> Task :engine:compileKotlin
+> Task :engine:compileJava NO-SOURCE
+> Task :engine:classes UP-TO-DATE
+> Task :engine:jar
+> Task :engine:compileTestKotlin
+> Task :engine:compileTestJava NO-SOURCE
+> Task :engine:testClasses UP-TO-DATE
+> Task :engine:test
+> Task :ai:compileKotlin
+> Task :ai:compileJava NO-SOURCE
+> Task :ai:classes UP-TO-DATE
+> Task :ai:jar
+
+> Task :ai:compileTestKotlin
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:36:41 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:39:28 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:40:71 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:44:32 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:44:54 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:44:106 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:45:69 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+
+> Task :ai:compileTestJava NO-SOURCE
+> Task :ai:testClasses UP-TO-DATE
+> Task :ai:test
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1792402196512.json
+
+BUILD SUCCESSFUL in 31s
+8 actionable tasks: 8 executed

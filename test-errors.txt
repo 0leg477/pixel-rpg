@@ -1,0 +1,11 @@
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:36:41 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:39:28 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:40:71 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:44:32 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:44:54 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:44:106 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+w: file:///home/runner/work/pixel-rpg/pixel-rpg/ai/src/test/kotlin/com/pixelrpg/ai/SchemasTest.kt:45:69 This declaration needs opt-in. Its usage should be marked with '@kotlinx.serialization.ExperimentalSerializationApi' or '@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)'
+
+> Task :ai:compileTestJava NO-SOURCE
+> Task :ai:testClasses UP-TO-DATE
+> Task :ai:test
