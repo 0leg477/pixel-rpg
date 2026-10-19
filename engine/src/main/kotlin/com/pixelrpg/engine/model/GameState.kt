@@ -37,6 +37,7 @@ class GameState(
     val log: MutableList<LogEntry> = mutableListOf(),
     val chronicle: MutableList<Chapter> = mutableListOf(),
     val codex: MutableList<CodexEntry> = mutableListOf(),
+    val album: MutableList<AlbumEntry> = mutableListOf(),
     val flags: MutableMap<String, String> = mutableMapOf(),
     var combat: CombatState? = null,
     var gameOver: Boolean = false,

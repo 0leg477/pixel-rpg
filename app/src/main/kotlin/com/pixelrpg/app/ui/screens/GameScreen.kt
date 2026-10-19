@@ -1,5 +1,13 @@
 package com.pixelrpg.app.ui.screens
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +57,9 @@ import com.pixelrpg.app.ui.components.PixelBar
 import com.pixelrpg.app.ui.components.PixelButton
 import com.pixelrpg.app.ui.components.PixelChip
 import com.pixelrpg.app.ui.components.PixelDie
+import com.pixelrpg.app.ui.components.PixelIcon
+import com.pixelrpg.app.ui.components.PixelIconButton
+import com.pixelrpg.app.ui.components.PixelIconView
 import com.pixelrpg.app.ui.components.PixelLabel
 import com.pixelrpg.app.ui.components.PixelPanel
 import com.pixelrpg.app.ui.components.PixelText
@@ -102,7 +113,7 @@ private fun TopBar(hud: Hud, onMenu: () -> Unit) {
         Modifier.fillMaxWidth().pixelFrame(c.panel, c.border, c.light, c.shadow, s.unit).padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PixelButton("☰", onMenu, small = true)
+        PixelIconButton(PixelIcon.MENU, onMenu)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             PixelText(hud.place, style = s.title.copy(fontSize = s.label.fontSize * 1.25f))
@@ -124,7 +135,9 @@ private fun StatusStrip(hud: Hud) {
         }
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PixelText("◆ ${hud.money}", style = s.small.copy(color = c.gold), modifier = Modifier.weight(1f))
+            PixelIconView(PixelIcon.COIN, c.gold, 12.dp)
+            Spacer(Modifier.width(6.dp))
+            PixelText(hud.money, style = s.small.copy(color = c.gold), modifier = Modifier.weight(1f))
             hud.conditions.take(3).forEach {
                 Spacer(Modifier.width(4.dp))
                 PixelChip(it, c.accent2)
@@ -175,7 +188,7 @@ private fun StoryTab(session: GameSession, ui: SessionUi, send: (String) -> Unit
 
     // Новый ход: печатаем с нуля.
     LaunchedEffect(ui.busy) {
-        if (ui.busy) {
+        if (ui.busy && !ui.painting) {
             typing.shown = 0
             typing.armed = speed > 0
         }
@@ -220,7 +233,8 @@ private fun StoryTab(session: GameSession, ui: SessionUi, send: (String) -> Unit
                     }
                     is Entry.Roll -> RollCard(e.check, animate = ui.freshRoll == e.check && ui.busy)
                     is Entry.Changes -> ChangesRow(e.changes)
-                    is Entry.System -> PixelText("※ ${e.text}", style = s.small)
+                    is Entry.System -> PixelText("~ ${e.text}", style = s.small)
+                    is Entry.Image -> SceneImage(e.path, e.caption)
                 }
             }
             item(key = "live") {
@@ -254,13 +268,15 @@ private fun StoryTab(session: GameSession, ui: SessionUi, send: (String) -> Unit
                     input = ""
                 }
             }
+            PixelIconButton(PixelIcon.PICTURE, { session.paint() }, enabled = !ui.busy && !ui.hud.gameOver)
+            Spacer(Modifier.width(6.dp))
             PixelTextField(
                 input, { input = it }, Modifier.weight(1f),
                 placeholder = if (ui.busy) "Мир отвечает…" else "Что ты делаешь?",
                 maxLines = 4, onSend = submit, enabled = !ui.hud.gameOver,
             )
             Spacer(Modifier.width(6.dp))
-            PixelButton("▶", submit, kind = ButtonKind.PRIMARY, enabled = !ui.busy && input.isNotBlank())
+            PixelIconButton(PixelIcon.SEND, submit, kind = ButtonKind.PRIMARY, enabled = !ui.busy && input.isNotBlank())
         }
     }
 }
@@ -454,7 +470,11 @@ private fun ItemsTab(hud: Hud, busy: Boolean, send: (String) -> Unit) {
     var open by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
         PixelPanel(Modifier.fillMaxWidth()) {
-            PixelText("◆ ${hud.money}", color = c.gold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PixelIconView(PixelIcon.COIN, c.gold, 14.dp)
+                Spacer(Modifier.width(8.dp))
+                PixelText(hud.money, color = c.gold)
+            }
         }
         Spacer(Modifier.height(10.dp))
         if (hud.inventory.isEmpty()) PixelText("Карманы пусты.", style = s.small)
@@ -531,14 +551,30 @@ private fun JournalTab(hud: Hud) {
             if (hud.quests.isEmpty()) PixelText("Пока никто ни о чём не просил.", style = s.small)
             hud.quests.forEach { q ->
                 val (mark, color) = when (q.status) {
-                    QuestStatus.ACTIVE -> "◇" to c.accent
-                    QuestStatus.DONE -> "✓" to c.good
-                    QuestStatus.FAILED -> "✗" to c.bad
+                    QuestStatus.ACTIVE -> PixelIcon.DIAMOND to c.accent
+                    QuestStatus.DONE -> PixelIcon.CHECK to c.good
+                    QuestStatus.FAILED -> PixelIcon.CROSS to c.bad
                 }
-                PixelText("$mark ${q.title}", color = color)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PixelIconView(mark, color, 12.dp)
+                    Spacer(Modifier.width(8.dp))
+                    PixelText(q.title, color = color)
+                }
                 PixelText(q.description, style = s.small.copy(color = if (q.status == QuestStatus.ACTIVE) c.text else c.dim))
                 q.notes.takeLast(3).forEach { PixelText("  · $it", style = s.small) }
                 Spacer(Modifier.height(8.dp))
+            }
+        }
+        if (hud.album.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            PixelPanel(Modifier.fillMaxWidth(), title = "Альбом") {
+                hud.album.chunked(2).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { (path, caption) -> SceneImage(path, caption, Modifier.weight(1f), small = true) }
+                        if (row.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -636,4 +672,48 @@ private fun WorldMap(hud: Hud) {
     }
     Spacer(Modifier.height(6.dp))
     PixelText("Север — вверху. Тусклые клетки — видно издалека, но ещё не исследовано.", style = Px.style.small)
+}
+
+/** Картинка сцены в пиксельной рамке; по нажатию — во весь экран. */
+@Composable
+private fun SceneImage(path: String, caption: String, modifier: Modifier = Modifier, small: Boolean = false) {
+    val s = Px.style
+    val c = s.c
+    val bitmap = remember(path) { runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() }
+    var full by remember { mutableStateOf(false) }
+    if (bitmap == null) {
+        PixelText("[картинка потеряна]", style = s.small, modifier = modifier)
+        return
+    }
+    Column(modifier) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .pixelFrame(c.border, c.border, c.light, c.shadow, s.unit)
+                .padding(s.unit * 2)
+                .clickable { full = true },
+        ) {
+            Image(
+                bitmap, caption,
+                Modifier.fillMaxWidth().aspectRatio(bitmap.width.toFloat() / bitmap.height),
+                contentScale = ContentScale.FillWidth,
+                filterQuality = FilterQuality.None,
+            )
+        }
+        if (!small) PixelText(caption, style = s.small)
+    }
+    if (full) {
+        Dialog(onDismissRequest = { full = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            Column(Modifier.fillMaxWidth().padding(8.dp).clickable { full = false }) {
+                Image(
+                    bitmap, caption,
+                    Modifier.fillMaxWidth().aspectRatio(bitmap.width.toFloat() / bitmap.height),
+                    contentScale = ContentScale.FillWidth,
+                    filterQuality = FilterQuality.None,
+                )
+                Spacer(Modifier.height(6.dp))
+                PixelText(caption, style = s.small.copy(color = c.text))
+            }
+        }
+    }
 }

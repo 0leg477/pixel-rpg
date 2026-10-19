@@ -177,7 +177,7 @@ data class Quest(
 )
 
 @Serializable
-enum class LogKind { PLAYER, STORY, ROLL, SYSTEM, CHANGE }
+enum class LogKind { PLAYER, STORY, ROLL, SYSTEM, CHANGE, IMAGE }
 
 @Serializable
 data class LogEntry(
@@ -198,3 +198,7 @@ data class CodexEntry(
     val category: String,
     val minute: Long,
 )
+
+/** Картинка сцены в альбоме путешествия. */
+@Serializable
+data class AlbumEntry(val path: String, val caption: String, val minute: Long)

@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.pixelrpg.ai.AiSettings
+import com.pixelrpg.ai.image.ImageSettings
 import com.pixelrpg.ai.view.WorkshopDraft
 import com.pixelrpg.app.ui.theme.UiPrefs
 import com.pixelrpg.engine.SaveCodec
@@ -50,6 +51,9 @@ class Storage(context: Context) {
     }
 
     fun load(id: String): GameState = SaveCodec.decode(File(File(root, id), "state.json").readText())
+
+    /** Папка для картинок сцен этого мира. */
+    fun imageDir(id: String): File = File(File(root, id), "images")
 
     fun delete(id: String) {
         File(root, id).deleteRecursively()
@@ -102,6 +106,17 @@ class SettingsStore(context: Context) {
     fun saveAi(s: AiSettings) {
         prefs.edit().putString("ai", json.encodeToString(AiSettings.serializer(), s.copy(apiKey = ""))).apply()
         secrets.edit().putString("api_key", s.apiKey.trim()).apply()
+    }
+
+    fun images(): ImageSettings {
+        val base = prefs.getString("images", null)
+            ?.let { runCatching { json.decodeFromString(ImageSettings.serializer(), it) }.getOrNull() } ?: ImageSettings()
+        return base.copy(apiKey = secrets.getString("image_key", "") ?: "")
+    }
+
+    fun saveImages(s: ImageSettings) {
+        prefs.edit().putString("images", json.encodeToString(ImageSettings.serializer(), s.copy(apiKey = ""))).apply()
+        secrets.edit().putString("image_key", s.apiKey.trim()).apply()
     }
 
     var lastWorldId: String?

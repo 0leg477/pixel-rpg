@@ -177,7 +177,7 @@ fun CanonView(canon: Canon) {
         }
         if (canon.impossible.isNotEmpty()) {
             SectionHeader("Чего здесь не бывает")
-            canon.impossible.forEach { PixelText("✗ $it", color = c.dim) }
+            canon.impossible.forEach { PixelText("— $it", color = c.dim) }
         }
         if (canon.rules.isNotEmpty()) {
             SectionHeader("Жёсткие правила")

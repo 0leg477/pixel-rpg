@@ -31,6 +31,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pixelrpg.ai.AiSettings
 import com.pixelrpg.ai.LlmTask
+import com.pixelrpg.ai.image.ImageProvider
+import com.pixelrpg.ai.image.PaletteMode
 import com.pixelrpg.app.AppViewModel
 import com.pixelrpg.app.Screen
 import com.pixelrpg.app.ui.components.ButtonKind
@@ -195,6 +197,9 @@ fun SettingsScreen(vm: AppViewModel) {
         }
         Spacer(Modifier.height(14.dp))
 
+        ImageSettingsPanel(vm)
+        Spacer(Modifier.height(14.dp))
+
         PixelPanel(Modifier.fillMaxWidth(), title = "Модели ИИ") {
             PixelText("Для каждой задачи можно выбрать свою модель. Haiku — быстрее и дешевле, Sonnet и Opus — умнее и дороже.", style = s.small)
             Spacer(Modifier.height(6.dp))
@@ -208,6 +213,40 @@ fun SettingsScreen(vm: AppViewModel) {
             }
         }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun ImageSettingsPanel(vm: AppViewModel) {
+    val img by vm.images.collectAsStateWithLifecycle()
+    var key by remember(img.apiKey, img.provider) { mutableStateOf(img.apiKey) }
+    var model by remember(img.model, img.provider) { mutableStateOf(img.model) }
+    val s = Px.style
+    PixelPanel(Modifier.fillMaxWidth(), title = "Картинки сцен") {
+        PixelText(
+            "Кнопка с картинкой рядом с полем ввода рисует то, что сейчас видит герой, в пиксельном стиле. " +
+                "Описание сцены составляет Claude, а рисует отдельный сервис — у него свой ключ и своя оплата.",
+            style = s.small,
+        )
+        PixelSelector("Сервис", ImageProvider.entries, img.provider, { it.title }, { vm.saveImages(img.copy(provider = it, model = "")) })
+        if (img.provider != ImageProvider.OFF) {
+            Spacer(Modifier.height(6.dp))
+            PixelTextField(key, { key = it }, Modifier.fillMaxWidth(), placeholder = "Ключ ${img.provider.title}", password = true)
+            Spacer(Modifier.height(6.dp))
+            PixelText("Модель (можно оставить пустым):", style = s.small)
+            PixelTextField(model, { model = it }, Modifier.fillMaxWidth(), placeholder = img.provider.defaultModel)
+            Spacer(Modifier.height(8.dp))
+            PixelButton(
+                "Сохранить", { vm.saveImages(img.copy(apiKey = key, model = model.trim())) }, Modifier.fillMaxWidth(),
+                kind = ButtonKind.PRIMARY, small = true, enabled = key != img.apiKey || model.trim() != img.model,
+            )
+            PixelSelector("Цвета", PaletteMode.entries, img.palette, { it.title }, { vm.saveImages(img.copy(palette = it)) })
+            PixelSelector(
+                "Пиксели", listOf(96, 128, 160, 200), img.pixels,
+                { when (it) { 96 -> "Крупные"; 128 -> "Средние"; 160 -> "Мелкие"; else -> "Совсем мелкие" } },
+                { vm.saveImages(img.copy(pixels = it)) },
+            )
+        }
     }
 }
 

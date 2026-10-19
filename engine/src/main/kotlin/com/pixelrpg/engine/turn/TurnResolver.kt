@@ -397,11 +397,11 @@ class TurnResolver(private val state: GameState) {
                         e.amount > 0 -> {
                             q.status = QuestStatus.DONE
                             hero.fame += 1
-                            fact("Задание «${q.title}» выполнено.", "✓ ${q.title}", Tone.GOOD)
+                            fact("Задание «${q.title}» выполнено.", "Выполнено: ${q.title}", Tone.GOOD)
                         }
                         e.amount < 0 -> {
                             q.status = QuestStatus.FAILED
-                            fact("Задание «${q.title}» провалено.", "✗ ${q.title}", Tone.BAD)
+                            fact("Задание «${q.title}» провалено.", "Провалено: ${q.title}", Tone.BAD)
                         }
                         else -> changes += Change("Задание обновлено: ${q.title}", Tone.NEUTRAL)
                     }
@@ -565,7 +565,7 @@ class TurnResolver(private val state: GameState) {
         if (!dest.generated) needsGeneration += dest.id
         fact(
             "Герой ${if (exit.direction.isNotEmpty()) "добирается" else "переходит"} в «${dest.name}» (${minutesWord(exit.minutes)} в пути).",
-            "→ ${dest.name}",
+            "» ${dest.name}",
             Tone.NEUTRAL,
         )
         if (first) changes += Change("Новое место", Tone.GOOD)
@@ -739,13 +739,13 @@ class TurnResolver(private val state: GameState) {
         if (progress.xp >= need) {
             progress.xp -= need
             progress.rank++
-            fact("Навык «${skill.name}» вырос до ${progress.rank}.", "${skill.name} → ${progress.rank}", Tone.GOOD)
+            fact("Навык «${skill.name}» вырос до ${progress.rank}.", "${skill.name}: ${progress.rank}", Tone.GOOD)
             val ranks = canon.skills.filter { it.attributeId == skill.attributeId }.sumOf { hero.skillRank(it.id) }
             val attr = canon.attribute(skill.attributeId) ?: return
             val current = hero.attr(attr.id)
             if (ranks % 3 == 0 && current < 3) {
                 hero.attributes[attr.id] = current + 1
-                fact("Характеристика «${attr.name}» выросла до ${current + 1}.", "${attr.name} → ${current + 1}", Tone.GOOD)
+                fact("Характеристика «${attr.name}» выросла до ${current + 1}.", "${attr.name}: ${current + 1}", Tone.GOOD)
             }
         }
     }

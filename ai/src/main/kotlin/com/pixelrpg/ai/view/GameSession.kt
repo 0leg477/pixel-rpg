@@ -3,12 +3,14 @@ package com.pixelrpg.ai.view
 import com.pixelrpg.ai.GameMaster
 import com.pixelrpg.ai.LlmException
 import com.pixelrpg.ai.TurnEvent
+import com.pixelrpg.ai.image.ScenePainter
+import com.pixelrpg.engine.model.AlbumEntry
+import com.pixelrpg.engine.model.Clock
 import com.pixelrpg.engine.model.GameState
 import com.pixelrpg.engine.model.LogKind
 import com.pixelrpg.engine.rules.CheckResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.File
 
 data class SessionUi(
     val entries: List<Entry>,
@@ -29,6 +32,10 @@ data class SessionUi(
     val freshRoll: CheckResult? = null,
     /** Что игрок отправил последним — чтобы можно было повторить после ошибки. */
     val lastInput: String? = null,
+    /** Сейчас рисуется картинка (а не идёт ход). */
+    val painting: Boolean = false,
+    /** Можно ли рисовать сцены: сервис картинок настроен. */
+    val canPaint: Boolean = false,
 )
 
 /**
@@ -39,12 +46,13 @@ class GameSession(
     private val state: GameState,
     private val master: GameMaster,
     private val scope: CoroutineScope,
+    private val painter: ScenePainter? = null,
+    private val imageDir: File? = null,
     private val persist: (GameState) -> Unit,
 ) {
     private val mutex = Mutex()
-    private var job: Job? = null
 
-    private val _ui = MutableStateFlow(SessionUi(HudBuilder.entries(state), HudBuilder.build(state)))
+    private val _ui = MutableStateFlow(SessionUi(HudBuilder.entries(state), HudBuilder.build(state), canPaint = painter != null))
     val ui: StateFlow<SessionUi> = _ui
 
     val worldId: String get() = state.id
@@ -68,10 +76,45 @@ class GameSession(
 
     fun dismissError() = _ui.update { it.copy(error = null) }
 
+    /** «Что видит герой»: рисует текущую сцену и кладёт её в ленту и альбом. */
+    fun paint() {
+        val p = painter
+        val dir = imageDir
+        if (p == null || dir == null) {
+            _ui.update { it.copy(error = "Картинки выключены. Выбери сервис и ключ в настройках.") }
+            return
+        }
+        // Флаг занятости ставится сразу; сама работа всё равно идёт под мьютексом.
+        if (_ui.value.busy) return
+        _ui.update { it.copy(busy = true, painting = true, stage = "Художник рисует…", error = null) }
+        scope.launch(Dispatchers.Default) {
+            mutex.withLock {
+                try {
+                    val file = p.paint(state, dir)
+                    val caption = "${state.location.name}, ${Clock.format(state.minute)}"
+                    state.addLog(LogKind.IMAGE, file.absolutePath + "|" + caption)
+                    state.album += AlbumEntry(file.absolutePath, caption, state.minute)
+                    state.location.imagePath = file.absolutePath
+                    persistSafely()
+                    _ui.update { it.copy(entries = HudBuilder.entries(state), hud = HudBuilder.build(state)) }
+                } catch (e: LlmException) {
+                    _ui.update { it.copy(error = e.message) }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    _ui.update { it.copy(error = "Не удалось нарисовать: ${e::class.simpleName}: ${e.message?.take(200)}") }
+                } finally {
+                    _ui.update { it.copy(busy = false, painting = false, stage = null) }
+                }
+            }
+        }
+    }
+
     private fun run(input: String?, events: () -> Flow<TurnEvent>) {
-        if (job?.isActive == true) return
+        // Флаг занятости ставится сразу; сама работа всё равно идёт под мьютексом.
+        if (_ui.value.busy) return
         _ui.update { it.copy(busy = true, error = null, streaming = "", suggestions = emptyList(), freshRoll = null, lastInput = input, stage = "…") }
-        job = scope.launch(Dispatchers.Default) {
+        scope.launch(Dispatchers.Default) {
             mutex.withLock {
                 var applied = false
                 try {

@@ -23,6 +23,7 @@ sealed interface Entry {
     data class Roll(override val key: String, val check: CheckResult) : Entry
     data class Changes(override val key: String, val changes: List<Change>) : Entry
     data class System(override val key: String, val text: String) : Entry
+    data class Image(override val key: String, val path: String, val caption: String) : Entry
 }
 
 data class ResBar(val name: String, val current: Int, val max: Int, val color: Long?, val health: Boolean)
@@ -57,6 +58,7 @@ data class Hud(
     val inventory: List<ItemRow>,
     val quests: List<QuestRow>,
     val codex: List<CodexRow>,
+    val album: List<Pair<String, String>>,
     val npcs: List<NpcRow>,
     val exits: List<String>,
     val itemsHere: List<String>,
@@ -106,6 +108,7 @@ object HudBuilder {
             },
             quests = state.quests.sortedBy { it.status.ordinal }.map { QuestRow(it.title, it.description, it.status, it.notes.toList()) },
             codex = state.codex.reversed().map { CodexRow(it.title, it.text, it.category) },
+            album = state.album.reversed().map { it.path to it.caption },
             npcs = state.npcsHere().map { NpcRow(it.id, it.name, it.role, TurnResolver.attitudeWord(it.attitude), it.hostile) },
             exits = loc.exits.filter { !it.hidden }.map { it.name },
             itemsHere = loc.items.map { it.name },
@@ -144,7 +147,7 @@ object HudBuilder {
     fun entries(state: GameState): List<Entry> {
         val out = ArrayList<Entry>()
         // Внутри хода показываем: заявка → бросок → изменения → рассказ (рассказ печатается последним).
-        val order = mapOf(LogKind.PLAYER to 0, LogKind.ROLL to 1, LogKind.CHANGE to 2, LogKind.SYSTEM to 3, LogKind.STORY to 4)
+        val order = mapOf(LogKind.PLAYER to 0, LogKind.ROLL to 1, LogKind.CHANGE to 2, LogKind.SYSTEM to 3, LogKind.STORY to 4, LogKind.IMAGE to 5)
         state.log.withIndex()
             .groupBy { it.value.turn }
             .toSortedMap()
@@ -161,6 +164,7 @@ object HudBuilder {
                             val parts = line.split("|", limit = 2)
                             if (parts.size == 2) Change(parts[1], runCatching { Tone.valueOf(parts[0]) }.getOrDefault(Tone.NEUTRAL)) else null
                         })
+                        LogKind.IMAGE -> out += Entry.Image(key, e.text.substringBefore("|"), e.text.substringAfter("|", ""))
                     }
                 }
             }

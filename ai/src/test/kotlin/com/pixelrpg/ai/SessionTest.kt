@@ -94,4 +94,43 @@ class SessionTest {
         assertEquals(turnBefore, state.turn)
         session.dismissError()
     }
+
+    @Test
+    fun `painting a scene adds it to the feed and the album`() = runBlocking<Unit> {
+        val llm = FakeLlm()
+        val state = newState(llm)
+        val codec = object : com.pixelrpg.ai.image.ImageCodec {
+            override fun decode(bytes: ByteArray): com.pixelrpg.ai.image.Pixels {
+                val img = javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(bytes))
+                val px = IntArray(img.width * img.height)
+                img.getRGB(0, 0, img.width, img.height, px, 0, img.width)
+                return com.pixelrpg.ai.image.Pixels(img.width, img.height, px)
+            }
+            override fun writePng(pixels: com.pixelrpg.ai.image.Pixels, file: java.io.File) {
+                val img = java.awt.image.BufferedImage(pixels.width, pixels.height, java.awt.image.BufferedImage.TYPE_INT_RGB)
+                img.setRGB(0, 0, pixels.width, pixels.height, pixels.argb, 0, pixels.width)
+                javax.imageio.ImageIO.write(img, "png", file)
+            }
+        }
+        val fakePng = java.io.ByteArrayOutputStream().also { out ->
+            val img = java.awt.image.BufferedImage(320, 180, java.awt.image.BufferedImage.TYPE_INT_RGB)
+            for (x in 0 until 320) for (y in 0 until 180) img.setRGB(x, y, (x * 255 / 320 shl 16) or (y * 255 / 180 shl 8) or 90)
+            javax.imageio.ImageIO.write(img, "png", out)
+        }.toByteArray()
+        val prompts = mutableListOf<String>()
+        val painter = com.pixelrpg.ai.image.ScenePainter(
+            GameMaster(llm), com.pixelrpg.ai.image.ImageSettings(pixels = 64), codec,
+            generator = { prompts += it; fakePng },
+        )
+        val dir = kotlin.io.path.createTempDirectory("scenes").toFile()
+        val session = GameSession(state, GameMaster(llm), this, painter, dir) {}
+        session.paint()
+        val ui = withTimeout(5000) { session.ui.first { !it.busy && it.entries.any { e -> e is Entry.Image } } }
+        assertNull(ui.error)
+        assertEquals(1, ui.hud.album.size)
+        val file = java.io.File(ui.hud.album.single().first)
+        assertTrue(file.exists())
+        assertEquals(64, javax.imageio.ImageIO.read(file).width)
+        assertTrue(prompts.single().startsWith("Pixel art"))
+    }
 }
