@@ -18,9 +18,6 @@ import com.pixelrpg.engine.rules.Dice
 /** Превращает черновики ИИ в сущности, по пути проверяя и ограничивая всё, что можно. */
 object Factory {
 
-    const val MAX_NPCS_PER_LOCATION = 6
-    const val MAX_PLACES_PER_LOCATION = 8
-
     fun newGame(id: String, seed: Long, canon: Canon, hero: Hero, settings: GameSettings, now: Long): GameState {
         val state = GameState(
             id = id, seed = seed, createdAt = now, canon = canon, hero = hero,
@@ -65,13 +62,13 @@ object Factory {
         )
         canon.resources.forEach { r -> hero.resources[r.id] = Pool(r.max, r.max) }
         var counter = 1
-        d.items.take(6).forEach { draft ->
+        d.items.forEach { draft ->
             hero.inventory += item("h${counter++}", draft, maxValue = 40, maxRarity = 1)
         }
         // Лучшее оружие и броня сразу в руках.
         hero.inventory.filter { it.slot == ItemSlot.WEAPON }.maxByOrNull { it.power }?.equipped = true
         hero.inventory.filter { it.slot == ItemSlot.ARMOR }.maxByOrNull { it.power }?.equipped = true
-        d.traits.take(2).forEach { t ->
+        d.traits.forEach { t ->
             hero.traits += Trait(t.name.take(40), t.description.take(300), t.modifier.coerceIn(-1, 1), t.tags.map(CanonValidator::tag))
         }
         return hero
@@ -94,7 +91,7 @@ object Factory {
             id = id,
             name = d.name.ifBlank { "Вещица" }.take(60),
             description = d.description.take(300),
-            tags = d.tags.map(CanonValidator::tag).distinct().take(6),
+            tags = d.tags.map(CanonValidator::tag).distinct(),
             quantity = d.quantity.coerceIn(1, 20),
             value = d.value.coerceIn(0, maxValue),
             rarity = rarity,
@@ -135,11 +132,11 @@ object Factory {
             maxHp = hp,
             money = d.money.coerceIn(0, 20 + danger * 15),
         )
-        npc.knowledge += d.knowledge.take(5).map { it.take(300) }
+        npc.knowledge += d.knowledge.map { it.take(300) }
         npc.tags += d.tags.map(CanonValidator::tag).take(6)
         val factionAttitude = state.factions[npc.factionId]?.attitude
         if (factionAttitude != null && d.attitude == 0) npc.attitude = factionAttitude / 2
-        d.items.take(4).forEach { npc.inventory += item(state.newId("i"), it, lootCap(danger), rarityCap(danger)) }
+        d.items.forEach { npc.inventory += item(state.newId("i"), it, lootCap(danger), rarityCap(danger)) }
         return npc
     }
 
@@ -149,12 +146,11 @@ object Factory {
         loc.description = d.description.take(1500)
         loc.visual = d.visual.take(600)
         loc.tags += d.tags.map(CanonValidator::tag).filter { it !in loc.tags }.take(8)
-        loc.features += d.features.take(6).map { it.take(200) }
+        loc.features += d.features.map { it.take(200) }
         d.exitNames.forEach { en ->
             loc.exits.firstOrNull { it.id == en.exitId && it.direction.isNotEmpty() }?.name = en.name.take(60)
         }
-        val room = MAX_PLACES_PER_LOCATION - WorldGen.childCount(state, loc)
-        d.places.take(maxOf(0, minOf(room, if (loc.parentId == null) 4 else 2))).forEach { p ->
+        d.places.forEach { p ->
             val kind = when (p.kind.lowercase()) {
                 "dungeon" -> LocationKind.DUNGEON
                 "landmark" -> LocationKind.LANDMARK
@@ -162,15 +158,14 @@ object Factory {
             }
             WorldGen.addPlace(state, loc, p.name.take(60), kind, p.hint.take(300))
         }
-        val present = state.npcs.values.count { it.locationId == loc.id && it.alive }
-        d.npcs.take(maxOf(0, MAX_NPCS_PER_LOCATION - present)).forEach {
+        d.npcs.forEach {
             val npc = npc(state, it, loc.id, loc.danger)
             state.npcs[npc.id] = npc
         }
-        d.items.take(3).forEach {
+        d.items.forEach {
             loc.items += item(state.newId("i"), it, lootCap(loc.danger), rarityCap(loc.danger))
         }
-        d.lore.take(2).forEach { addLore(state, loc.name, it) }
+        d.lore.forEach { addLore(state, loc.name, it) }
         loc.generated = true
     }
 

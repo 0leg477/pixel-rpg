@@ -17,7 +17,7 @@
 
 1. Установи Termux из F-Droid или с GitHub (версия из Google Play устарела).
 2. В Termux: `pkg update -y && pkg install -y ollama`
-3. Запусти сервер: `OLLAMA_CONTEXT_LENGTH=8192 ollama serve` и оставь это окно работать.
+3. Запусти сервер: `OLLAMA_CONTEXT_LENGTH=16384 ollama serve` и оставь это окно работать (большой контекст нужен для больших миров).
 4. Во втором окне Termux (смахни слева → New session): `ollama pull qwen2.5:3b`
 5. В игре: Настройки → «Свой сервер» → «Телефон (Ollama в Termux)» → модель `qwen2.5:3b` → «Проверить связь» → «Сохранить».
 

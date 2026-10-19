@@ -59,7 +59,7 @@ class GameMaster(private val llm: LlmClient) {
         val raw = ask(
             LlmTask.GENESIS, pick(Prompts.GENESIS, Prompts.GENESIS_COMPACT),
             "Описание мира от игрока:\n\n${description.trim()}",
-            Schemas.canon, Canon.serializer(), maxTokens = tokens(16000, 6000),
+            Schemas.canon, Canon.serializer(), maxTokens = tokens(32000, 12000),
             progress = JsonProgress.canon(compact), onProgress = onProgress,
         )
         return CanonValidator.normalize(raw)
@@ -69,7 +69,7 @@ class GameMaster(private val llm: LlmClient) {
         val raw = ask(
             LlmTask.GENESIS, Prompts.REFINE,
             "Текущий канон:\n${SaveCodec.json.encodeToString(Canon.serializer(), canon)}\n\nЧто изменить:\n${instruction.trim()}",
-            Schemas.canon, Canon.serializer(), maxTokens = tokens(16000, 6000),
+            Schemas.canon, Canon.serializer(), maxTokens = tokens(32000, 12000),
             progress = JsonProgress.canon(compact), onProgress = onProgress,
         )
         return CanonValidator.normalize(raw)
@@ -79,7 +79,7 @@ class GameMaster(private val llm: LlmClient) {
         val draft = ask(
             LlmTask.HERO, system(Prompts.HERO, Prompts.HERO, canon),
             "Стартовый сценарий: ${canon.startScenario}\n\nОписание героя от игрока:\n\n${description.trim().ifBlank { "Придумай героя сам, под стартовый сценарий." }}",
-            Schemas.hero, HeroDraft.serializer(), maxTokens = tokens(6000, 2500),
+            Schemas.hero, HeroDraft.serializer(), maxTokens = tokens(8000, 4000),
             progress = JsonProgress.plain(tokens(2500, 1400), "герой"), onProgress = onProgress,
         )
         return Factory.hero(canon, draft)
@@ -237,7 +237,7 @@ class GameMaster(private val llm: LlmClient) {
         }
         val draft = ask(
             LlmTask.LOCATION, system(Prompts.LOCATION, Prompts.LOCATION_COMPACT, state.canon), user,
-            Schemas.location, LocationDraft.serializer(), maxTokens = tokens(8000, 2500),
+            Schemas.location, LocationDraft.serializer(), maxTokens = tokens(12000, 5000),
             progress = JsonProgress.plain(tokens(3500, 1800), "место"), onProgress = onProgress,
         )
         Factory.applyLocationDraft(state, loc, draft)

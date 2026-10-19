@@ -211,13 +211,14 @@ class GameMasterTest {
     }
 
     @Test
-    fun `small models get bounded lists`() = runTest {
+    fun `world content is never limited, only the master's turn structure`() = runTest {
         val llm = FakeLlm(compact = true)
-        GameMaster(llm).createCanon("мир")
-        val skills = llm.schemas.last()["properties"]!!.let { it as JsonObject }["skills"] as JsonObject
-        assertEquals("8", skills["maxItems"].toString())
-        val full = FakeLlm(compact = false)
-        GameMaster(full).createCanon("мир")
-        assertFalse("maxItems" in full.schemas.last().toString())
+        val state = newGame(llm)
+        assertFalse("maxItems" in llm.schemas.first().toString(), "canon must stay unlimited")
+        llm.adjudications += Adjudication(action = "look", summary = "смотрит")
+        GameMaster(llm).playTurn(state, "смотрю").toList()
+        val adjudication = llm.schemas.last { "success" in (it["properties"] as JsonObject) }
+        val success = (adjudication["properties"] as JsonObject)["success"] as JsonObject
+        assertEquals("4", success["maxItems"].toString())
     }
 }

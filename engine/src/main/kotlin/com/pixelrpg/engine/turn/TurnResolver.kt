@@ -43,9 +43,6 @@ class TurnResolver(private val state: GameState) {
     private var encounter: Encounter? = null
     private var moved = false
     private var itemsGained = 0
-    private var npcsSpawned = 0
-    private var placesFound = 0
-    private var questsAdded = 0
     /** Противники, которые не бьют в ответ в этом раунде (герой их переиграл). */
     private val suppressed = mutableSetOf<String>()
 
@@ -210,7 +207,7 @@ class TurnResolver(private val state: GameState) {
     private fun applyEffects(list: List<EffectSpec>, mode: Mode, difficulty: Difficulty, adj: Adjudication, crit: Boolean) {
         val s = difficulty.stakes
         val danger = state.location.danger
-        for (e in list.take(8)) {
+        for (e in list) {
             val type = EffectType.parse(e.type) ?: continue
             when (type) {
                 EffectType.HERO_RESOURCE -> heroResource(e, mode, s, danger, crit, adj)
@@ -348,7 +345,7 @@ class TurnResolver(private val state: GameState) {
                     fact("${npc.name} делится сведениями: ${e.text}", "Новые сведения", Tone.GOOD)
                 }
                 EffectType.SPAWN_NPC -> {
-                    if (npcsSpawned >= 1 || state.npcsHere().size >= Factory.MAX_NPCS_PER_LOCATION) continue
+                    if (e.name.isBlank()) continue
                     val hostile = e.tags.any { CanonValidator.tag(it) in HOSTILE_TAGS }
                     val npc = Factory.npc(
                         state,
@@ -359,17 +356,14 @@ class TurnResolver(private val state: GameState) {
                         state.currentLocationId, danger,
                     )
                     state.npcs[npc.id] = npc
-                    npcsSpawned++
                     fact("Появляется: ${npc.name} — ${npc.role}.", "Новое лицо: ${npc.name}", if (hostile) Tone.BAD else Tone.NEUTRAL)
                     if (hostile) makeHostile(npc)
                 }
                 EffectType.DISCOVER_PLACE -> {
-                    if (mode == Mode.FAILURE || placesFound >= 1) continue
+                    if (mode == Mode.FAILURE || e.name.isBlank()) continue
                     val here = state.location
-                    if (WorldGen.childCount(state, here) >= Factory.MAX_PLACES_PER_LOCATION || e.name.isBlank()) continue
                     val kind = if (e.tags.any { CanonValidator.tag(it) in DUNGEON_TAGS }) LocationKind.DUNGEON else LocationKind.PLACE
                     WorldGen.addPlace(state, here, e.name.take(60), kind, e.text.take(300))
-                    placesFound++
                     fact("Найден путь: «${e.name}».", "Новое место: ${e.name}", Tone.GOOD)
                 }
                 EffectType.REVEAL_EXIT -> {
@@ -383,11 +377,10 @@ class TurnResolver(private val state: GameState) {
                     if (e.text.isNotBlank()) changes += Change("Кодекс: ${e.name.ifBlank { "новая запись" }}", Tone.GOOD)
                 }
                 EffectType.QUEST_ADD -> {
-                    if (questsAdded >= 1 || state.quests.count { it.status == QuestStatus.ACTIVE } >= 10 || e.name.isBlank()) continue
+                    if (e.name.isBlank()) continue
                     if (state.quests.any { it.title.equals(e.name, ignoreCase = true) && it.status == QuestStatus.ACTIVE }) continue
                     val q = Quest(state.newId("q"), e.name.take(80), e.text.take(600), giverNpcId = e.npcId, startedAt = state.minute)
                     state.quests += q
-                    questsAdded++
                     fact("Новое задание: «${q.title}».", "Задание: ${q.title}", Tone.NEUTRAL)
                 }
                 EffectType.QUEST_UPDATE -> {

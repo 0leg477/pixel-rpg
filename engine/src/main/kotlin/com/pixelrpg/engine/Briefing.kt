@@ -155,7 +155,7 @@ object Briefing {
     fun canonCompact(c: Canon): String = buildString {
         appendLine("# МИР: ${c.title}. ${c.pitch.take(300)}")
         appendLine("Тон: ${c.tone}. Стиль: ${c.narratorStyle.take(200)}")
-        if (c.laws.isNotEmpty()) appendLine("Законы: " + c.laws.take(6).joinToString("; "))
+        if (c.laws.isNotEmpty()) appendLine("Законы: " + c.laws.joinToString("; "))
         if (c.impossible.isNotEmpty()) appendLine("Не бывает: " + c.impossible.joinToString("; "))
         appendLine("Навыки (id): " + c.skills.joinToString("; ") { "${it.id}=${it.name}" + if (it.tags.isNotEmpty()) " [${it.tags.joinToString(",")}]" else "" })
         appendLine("Ресурсы (id): " + c.resources.joinToString("; ") { "${it.id}=${it.name}" })

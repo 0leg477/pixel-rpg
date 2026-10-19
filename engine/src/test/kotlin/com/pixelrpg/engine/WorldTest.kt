@@ -42,7 +42,7 @@ class WorldTest {
     }
 
     @Test
-    fun `location draft creates places npcs and items within limits`() {
+    fun `location draft keeps all its places and people but caps loot value`() {
         val state = Fixtures.game()
         val loc = state.location
         Factory.applyLocationDraft(
@@ -56,8 +56,10 @@ class WorldTest {
             ),
         )
         assertEquals("Серая Пристань", loc.name)
-        assertTrue(WorldGen.childCount(state, loc) <= 4)
-        assertTrue(state.npcsHere().size <= Factory.MAX_NPCS_PER_LOCATION)
+        // Количество не ограничено: сколько мест и людей придумано — столько и есть.
+        assertEquals(10, WorldGen.childCount(state, loc))
+        assertEquals(10, state.npcsHere().size)
+        // А сила и ценность — по правилам баланса.
         assertTrue(state.npcsHere().all { it.power <= loc.danger + 3 })
         val sword = loc.items.single()
         assertTrue(sword.rarity <= Factory.rarityCap(loc.danger))
@@ -83,7 +85,7 @@ class WorldTest {
         assertTrue(hero.attributes.values.all { it in -1..2 })
         assertTrue(hero.attributes.values.sum() <= (canon.attributes.size + 1) / 2 + 1)
         assertTrue(hero.skills.values.sumOf { it.rank } <= 5)
-        assertTrue(hero.inventory.size <= 6)
+        assertEquals(20, hero.inventory.size)
         assertTrue(hero.inventory.all { it.rarity <= 1 && it.value <= 40 && it.power <= 4 })
         assertEquals(1, hero.inventory.count { it.equipped })
     }

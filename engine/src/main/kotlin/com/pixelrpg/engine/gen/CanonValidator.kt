@@ -33,7 +33,6 @@ object CanonValidator {
         val attributes = raw.attributes
             .map { it.copy(id = slug(it.id.ifBlank { it.name })) }
             .distinctBy { it.id }
-            .take(7)
             .ifEmpty { DEFAULT_ATTRIBUTES }
         val attrIds = attributes.map { it.id }.toSet()
 
@@ -46,7 +45,6 @@ object CanonValidator {
                 )
             }
             .distinctBy { it.id }
-            .take(18)
             .ifEmpty { attributes.map { SkillDef(it.id + "_skill", it.name, it.id) } }
 
         var resources = raw.resources
@@ -59,7 +57,6 @@ object CanonValidator {
                 )
             }
             .distinctBy { it.id }
-            .take(5)
         if (resources.none { it.role == ResourceRole.HEALTH }) {
             resources = listOf(ResourceDef("health", "Здоровье", 12, ResourceRole.HEALTH, 1, color = "#d04648")) + resources
         } else {
@@ -82,14 +79,13 @@ object CanonValidator {
                 durationHours = it.durationHours.coerceIn(0, 24 * 14),
                 tags = it.tags.map(::tag),
             )
-        }).distinctBy { it.id }.take(20)
+        }).distinctBy { it.id }
         val conditionIds = conditions.map { it.id }.toSet()
         resources = resources.map { r -> if (r.zeroConditionId in conditionIds) r else r.copy(zeroConditionId = "") }
 
         val cultures = raw.cultures
             .map { it.copy(id = slug(it.id.ifBlank { it.name })) }
             .distinctBy { it.id }
-            .take(8)
             .ifEmpty { listOf(CultureDef("locals", "Местные", "Обычные жители этих земель.")) }
         val cultureIds = cultures.map { it.id }.toSet()
 
@@ -104,7 +100,6 @@ object CanonValidator {
                 )
             }
             .distinctBy { it.id }
-            .take(8)
         val factionIds = factions.map { it.id }.toSet()
 
         val biomes = raw.biomes
@@ -118,7 +113,6 @@ object CanonValidator {
                 )
             }
             .distinctBy { it.id }
-            .take(12)
             .let { if (it.size >= 2) it else it + DEFAULT_BIOMES.filter { d -> it.none { b -> b.id == d.id } } }
 
         val rules = raw.rules.mapNotNull { rule ->
@@ -147,7 +141,7 @@ object CanonValidator {
                 outcome = rule.outcome.lowercase().takeIf { it in setOf("success", "partial", "failure") } ?: "",
                 effects = effects,
             )
-        }.distinctBy { it.id }.take(16)
+        }.distinctBy { it.id }
 
         return raw.copy(
             title = raw.title.ifBlank { "Безымянный мир" }.take(80),
@@ -167,8 +161,8 @@ object CanonValidator {
             cultures = cultures,
             factions = factions,
             biomes = biomes,
-            itemTags = raw.itemTags.map(::tag).distinct().take(40),
-            palette = raw.palette.filter { HEX.matches(it) }.take(16),
+            itemTags = raw.itemTags.map(::tag).distinct(),
+            palette = raw.palette.filter { HEX.matches(it) },
         )
     }
 

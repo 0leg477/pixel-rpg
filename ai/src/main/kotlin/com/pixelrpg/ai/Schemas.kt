@@ -211,18 +211,17 @@ object Schemas {
 
     val imagePrompt: JsonObject = S.o("prompt" to S.str("описание сцены на английском для генератора изображений"))
 
-    /** Пределы списков для маленьких моделей: по имени поля — сколько элементов максимум. */
+    /**
+     * Пределы только для служебных списков решения мастера (сколько последствий у одного исхода).
+     * Содержимое мира — фракции, навыки, предметы, персонажи — не ограничивается.
+     */
     private val COMPACT_LIMITS = mapOf(
-        "laws" to 5, "impossible" to 3, "attributes" to 4, "skills" to 8, "resources" to 2, "conditions" to 2,
-        "rules" to 3, "effects" to 2, "cultures" to 2, "factions" to 3, "biomes" to 4, "itemTags" to 8, "palette" to 6,
-        "tags" to 3, "places" to 3, "npcs" to 2, "items" to 2, "features" to 3, "knowledge" to 2, "lore" to 1,
-        "exitNames" to 4, "traits" to 2, "itemIds" to 3, "always" to 3, "success" to 3, "partial" to 3, "failure" to 3,
+        "itemIds" to 4, "always" to 4, "success" to 4, "partial" to 4, "failure" to 4,
     )
 
     /**
-     * Та же схема, но с ограничением длины списков (maxItems). Локальные серверы превращают схему
-     * в грамматику, и модель физически не может написать лишнего — это главное ускорение на телефоне.
-     * Для Claude не используется: его структурированные ответы не принимают такие ограничения.
+     * Та же схема, но со служебными пределами (maxItems) — чтобы маленькая модель на телефоне
+     * не расписывала решение мастера бесконечно. Для Claude не используется.
      */
     fun bounded(schema: JsonObject): JsonObject = bound(schema, null) as JsonObject
 
