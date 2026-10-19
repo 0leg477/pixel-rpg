@@ -55,37 +55,43 @@ class GameMaster(private val llm: LlmClient) {
 
     // ---------- Создание мира и героя ----------
 
-    suspend fun createCanon(description: String): Canon {
+    suspend fun createCanon(description: String, onProgress: ((Progress) -> Unit)? = null): Canon {
         val raw = ask(
             LlmTask.GENESIS, pick(Prompts.GENESIS, Prompts.GENESIS_COMPACT),
             "Описание мира от игрока:\n\n${description.trim()}",
             Schemas.canon, Canon.serializer(), maxTokens = tokens(16000, 6000),
+            progress = JsonProgress.canon(compact), onProgress = onProgress,
         )
         return CanonValidator.normalize(raw)
     }
 
-    suspend fun refineCanon(canon: Canon, instruction: String): Canon {
+    suspend fun refineCanon(canon: Canon, instruction: String, onProgress: ((Progress) -> Unit)? = null): Canon {
         val raw = ask(
             LlmTask.GENESIS, Prompts.REFINE,
             "Текущий канон:\n${SaveCodec.json.encodeToString(Canon.serializer(), canon)}\n\nЧто изменить:\n${instruction.trim()}",
             Schemas.canon, Canon.serializer(), maxTokens = tokens(16000, 6000),
+            progress = JsonProgress.canon(compact), onProgress = onProgress,
         )
         return CanonValidator.normalize(raw)
     }
 
-    suspend fun createHero(canon: Canon, description: String): Hero {
+    suspend fun createHero(canon: Canon, description: String, onProgress: ((Progress) -> Unit)? = null): Hero {
         val draft = ask(
             LlmTask.HERO, system(Prompts.HERO, Prompts.HERO, canon),
             "Стартовый сценарий: ${canon.startScenario}\n\nОписание героя от игрока:\n\n${description.trim().ifBlank { "Придумай героя сам, под стартовый сценарий." }}",
             Schemas.hero, HeroDraft.serializer(), maxTokens = tokens(6000, 2500),
+            progress = JsonProgress.plain(tokens(2500, 1400), "герой"), onProgress = onProgress,
         )
         return Factory.hero(canon, draft)
     }
 
     /** Новая игра: каркас мира, описание стартового места. Вступление — через [intro]. */
-    suspend fun startGame(id: String, seed: Long, canon: Canon, hero: Hero, settings: GameSettings, now: Long): GameState {
+    suspend fun startGame(
+        id: String, seed: Long, canon: Canon, hero: Hero, settings: GameSettings, now: Long,
+        onProgress: ((Progress) -> Unit)? = null,
+    ): GameState {
         val state = Factory.newGame(id, seed, canon, hero, settings, now)
-        generateLocation(state, state.location)
+        generateLocation(state, state.location, onProgress)
         return state
     }
 
@@ -109,13 +115,14 @@ class GameMaster(private val llm: LlmClient) {
 
     // ---------- Ход ----------
 
-    fun playTurn(state: GameState, input: String): Flow<TurnEvent> = flow {
+    fun playTurn(state: GameState, input: String, onProgress: ((Progress) -> Unit)? = null): Flow<TurnEvent> = flow {
         emit(TurnEvent.Stage("Мастер обдумывает…"))
         val adjudication = ask(
             LlmTask.ADJUDICATE,
             system(Prompts.ADJUDICATE, Prompts.ADJUDICATE_COMPACT, state.canon),
             brief(state, master = true, recent = 8) + "\n\n## ЗАЯВКА ИГРОКА\n" + input.trim(),
             Schemas.adjudication, Adjudication.serializer(), maxTokens = tokens(8000, 2000),
+            progress = JsonProgress.plain(tokens(1800, 900), "мастер"), onProgress = onProgress,
         )
 
         val report = TurnResolver(state).resolve(input.trim(), adjudication)
@@ -131,7 +138,7 @@ class GameMaster(private val llm: LlmClient) {
         for (id in report.needsGeneration) {
             val loc = state.locations[id] ?: continue
             emit(TurnEvent.Stage("Мир обретает форму…"))
-            runCatching { generateLocation(state, loc) }
+            runCatching { generateLocation(state, loc, onProgress) }
         }
         report.encounter?.let { enc ->
             emit(TurnEvent.Stage("Что-то происходит…"))
@@ -194,7 +201,7 @@ class GameMaster(private val llm: LlmClient) {
 
     // ---------- Наполнение мира ----------
 
-    suspend fun generateLocation(state: GameState, loc: Location) {
+    suspend fun generateLocation(state: GameState, loc: Location, onProgress: ((Progress) -> Unit)? = null) {
         if (loc.generated) return
         val parent = loc.parentId?.let { state.locations[it] }
         val biome = state.canon.biome(loc.biomeId)
@@ -231,6 +238,7 @@ class GameMaster(private val llm: LlmClient) {
         val draft = ask(
             LlmTask.LOCATION, system(Prompts.LOCATION, Prompts.LOCATION_COMPACT, state.canon), user,
             Schemas.location, LocationDraft.serializer(), maxTokens = tokens(8000, 2500),
+            progress = JsonProgress.plain(tokens(3500, 1800), "место"), onProgress = onProgress,
         )
         Factory.applyLocationDraft(state, loc, draft)
     }
@@ -308,10 +316,22 @@ class GameMaster(private val llm: LlmClient) {
         if (compact) Briefing.compact(state, master) else Briefing.full(state, master, recent)
 
     /** Запрос со схемой; при испорченном JSON — одна повторная попытка. */
-    private suspend fun <T> ask(task: LlmTask, system: String, user: String, schema: JsonObject, serializer: KSerializer<T>, maxTokens: Int): T {
+    private suspend fun <T> ask(
+        task: LlmTask,
+        system: String,
+        user: String,
+        schema: JsonObject,
+        serializer: KSerializer<T>,
+        maxTokens: Int,
+        progress: JsonProgress? = null,
+        onProgress: ((Progress) -> Unit)? = null,
+    ): T {
         var lastError: Exception? = null
+        // Маленьким моделям ограничиваем длину списков прямо в схеме.
+        val effectiveSchema = if (compact) Schemas.bounded(schema) else schema
+        val onText: ((String) -> Unit)? = if (progress != null && onProgress != null) { text -> onProgress(progress.of(text)) } else null
         repeat(2) {
-            val text = llm.json(LlmRequest(task, system, user, maxTokens), schema)
+            val text = llm.json(LlmRequest(task, system, user, maxTokens), effectiveSchema, onText)
             try {
                 return JsonText.decode(text, serializer)
             } catch (e: Exception) {

@@ -83,7 +83,7 @@ class SessionTest {
         val session = GameSession(state, GameMaster(llm), this) {}
         // Очередь решений мастера пуста — подставной ИИ упадёт, как упал бы настоящий.
         val failing = object : LlmClient by llm {
-            override suspend fun json(request: LlmRequest, schema: kotlinx.serialization.json.JsonObject): String =
+            override suspend fun json(request: LlmRequest, schema: kotlinx.serialization.json.JsonObject, onText: ((String) -> Unit)?): String =
                 throw LlmException("Нет связи с сервером.", retryable = true)
         }
         val s2 = GameSession(state, GameMaster(failing), this) {}

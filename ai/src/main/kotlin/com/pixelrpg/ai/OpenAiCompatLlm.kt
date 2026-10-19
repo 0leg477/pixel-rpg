@@ -1,6 +1,8 @@
 package com.pixelrpg.ai
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -43,7 +45,7 @@ class OpenAiCompatLlm(private val server: ServerSettings) : LlmClient {
 
     private class HttpError(val code: Int, val body: String) : IOException("HTTP $code")
 
-    override suspend fun json(request: LlmRequest, schema: JsonObject): String = withContext(Dispatchers.IO) {
+    override suspend fun json(request: LlmRequest, schema: JsonObject, onText: ((String) -> Unit)?): String = withContext(Dispatchers.IO) {
         val inlined = inlineRefs(schema, schema)
         while (true) {
             val mode = jsonMode
@@ -54,7 +56,8 @@ class OpenAiCompatLlm(private val server: ServerSettings) : LlmClient {
                 putMessages(request.system, user)
                 put("max_tokens", request.maxTokens)
                 put("temperature", 0.5)
-                put("stream", false)
+                // Потоком: длинный ответ маленькой модели не упрётся в таймаут, а игрок видит прогресс.
+                put("stream", true)
                 when (mode) {
                     JsonMode.SCHEMA -> putJsonObject("response_format") {
                         put("type", "json_schema")
@@ -69,14 +72,20 @@ class OpenAiCompatLlm(private val server: ServerSettings) : LlmClient {
                 }
             }
             try {
-                val response = json.parseToJsonElement(post("chat/completions", body.toString())).jsonObject
-                val choice = response["choices"]?.jsonArray?.firstOrNull()?.jsonObject
-                val content = choice?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull
-                    ?: throw LlmException("Сервер ИИ вернул пустой ответ.", retryable = true)
-                if (choice["finish_reason"]?.jsonPrimitive?.contentOrNull == "length") {
+                val text = StringBuilder()
+                val thinking = ThinkFilter()
+                val finish = streamChat(body.toString()) { delta ->
+                    val visible = thinking.feed(delta)
+                    if (visible.isNotEmpty()) {
+                        text.append(visible)
+                        onText?.invoke(text.toString())
+                    }
+                }
+                if (finish == "length") {
                     throw LlmException("Ответ модели оборвался. Попробуй ещё раз или увеличь контекст модели.", retryable = true)
                 }
-                return@withContext stripThinking(content)
+                if (text.isBlank()) throw LlmException("Сервер ИИ вернул пустой ответ.", retryable = true)
+                return@withContext stripThinking(text.toString())
             } catch (e: HttpError) {
                 // Сервер не понял response_format (4xx) или упал на сложной грамматике схемы (5xx) — пробуем попроще.
                 val formatProblem = e.code in 400..422 && e.code != 401 && e.code != 403 && e.code != 404
@@ -102,37 +111,47 @@ class OpenAiCompatLlm(private val server: ServerSettings) : LlmClient {
             put("temperature", 0.8)
             put("stream", true)
         }
-        val conn = try {
-            open("chat/completions", body.toString())
+        val thinking = ThinkFilter()
+        try {
+            streamChat(body.toString()) { delta ->
+                val visible = thinking.feed(delta)
+                if (visible.isNotEmpty()) emit(visible)
+            }
         } catch (e: IOException) {
             throw mapError(e)
         }
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Читает ответ сервера потоком (SSE) и отдаёт каждый кусочек текста в [onDelta].
+     * Возвращает finish_reason. Ждём до 5 минут тишины — столько маленькая модель может читать подсказку.
+     */
+    private suspend fun streamChat(body: String, onDelta: suspend (String) -> Unit): String? {
+        val conn = open("chat/completions", body)
         try {
             val code = conn.responseCode
-            if (code !in 200..299) throw mapError(HttpError(code, conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""))
-            val thinking = ThinkFilter()
+            if (code !in 200..299) throw HttpError(code, conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "")
+            var finish: String? = null
             conn.inputStream.bufferedReader().use { reader ->
                 while (true) {
+                    currentCoroutineContext().ensureActive()
                     val line = reader.readLine() ?: break
                     if (!line.startsWith("data:")) continue
                     val data = line.removePrefix("data:").trim()
                     if (data == "[DONE]") break
-                    val delta = runCatching {
+                    val choice = runCatching {
                         json.parseToJsonElement(data).jsonObject["choices"]?.jsonArray?.firstOrNull()?.jsonObject
-                            ?.get("delta")?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull
                     }.getOrNull() ?: continue
-                    val visible = thinking.feed(delta)
-                    if (visible.isNotEmpty()) emit(visible)
+                    choice["finish_reason"]?.jsonPrimitive?.contentOrNull?.let { finish = it }
+                    val delta = choice["delta"]?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull ?: continue
+                    if (delta.isNotEmpty()) onDelta(delta)
                 }
             }
-        } catch (e: LlmException) {
-            throw e
-        } catch (e: IOException) {
-            throw mapError(e)
+            return finish
         } finally {
             conn.disconnect()
         }
-    }.flowOn(Dispatchers.IO)
+    }
 
     /** Список моделей на сервере — для кнопки «Проверить связь». */
     suspend fun listModels(): List<String> = withContext(Dispatchers.IO) {
@@ -175,26 +194,14 @@ class OpenAiCompatLlm(private val server: ServerSettings) : LlmClient {
         val conn = (URL(url(path)).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 10_000
-            // Модель на телефоне думает долго — даём ей до 10 минут.
-            readTimeout = 600_000
+            // Тишина между кусочками ответа: столько маленькая модель может читать длинную подсказку.
+            readTimeout = 300_000
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             if (server.apiKey.isNotBlank()) setRequestProperty("Authorization", "Bearer ${server.apiKey.trim()}")
         }
         conn.outputStream.use { it.write(body.toByteArray()) }
         return conn
-    }
-
-    private fun post(path: String, body: String): String {
-        val conn = open(path, body)
-        try {
-            val code = conn.responseCode
-            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
-            if (code !in 200..299) throw HttpError(code, text)
-            return text
-        } finally {
-            conn.disconnect()
-        }
     }
 
     private fun mapError(e: IOException): LlmException {

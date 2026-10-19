@@ -28,6 +28,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -44,7 +47,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.pixelrpg.ai.Progress
 import com.pixelrpg.app.ui.theme.Px
+import kotlinx.coroutines.delay
 
 enum class ButtonKind { NORMAL, PRIMARY, DANGER, GHOST }
 
@@ -241,15 +246,61 @@ fun BlinkingCursor(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier.size(10.dp, 16.dp)) { drawRect(color.copy(alpha = a)) }
 }
 
+/**
+ * Индикатор ожидания: мигающий курсор, этап, время с начала и — если известен — прогресс в процентах.
+ * [onCancel] добавляет кнопку «Отмена» для долгих генераций.
+ */
 @Composable
-fun LoadingLine(text: String, modifier: Modifier = Modifier) {
+fun LoadingLine(text: String, modifier: Modifier = Modifier, progress: Progress? = null, onCancel: (() -> Unit)? = null) {
     val s = Px.style
+    val c = s.c
     val t = rememberInfiniteTransition(label = "dots")
     val phase by t.animateFloat(0f, 4f, infiniteRepeatable(tween(1200, easing = LinearEasing)), label = "p")
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        BlinkingCursor(s.c.accent)
-        Spacer(Modifier.width(8.dp))
-        BasicText(text.trimEnd('…', '.') + ".".repeat(phase.toInt().coerceIn(0, 3)), style = s.small.copy(color = s.c.accent))
+    val start = remember { System.currentTimeMillis() }
+    var now by remember { mutableLongStateOf(start) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            now = System.currentTimeMillis()
+        }
+    }
+    val seconds = ((now - start) / 1000).toInt()
+    val elapsed = "%d:%02d".format(seconds / 60, seconds % 60)
+    Column(modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BlinkingCursor(c.accent)
+            Spacer(Modifier.width(8.dp))
+            BasicText(
+                text.trimEnd('…', '.') + ".".repeat(phase.toInt().coerceIn(0, 3)),
+                style = s.small.copy(color = c.accent),
+                modifier = Modifier.weight(1f),
+            )
+            BasicText(elapsed, style = s.small)
+        }
+        if (progress != null) {
+            Spacer(Modifier.height(6.dp))
+            val percent = (progress.fraction * 100).toInt()
+            Row(Modifier.fillMaxWidth()) {
+                BasicText(progress.label, style = s.small.copy(color = c.text), modifier = Modifier.weight(1f))
+                BasicText("$percent%", style = s.small.copy(color = c.accent))
+            }
+            Spacer(Modifier.height(3.dp))
+            Canvas(Modifier.fillMaxWidth().height(12.dp)) {
+                val segments = 20
+                val gap = 2.dp.toPx()
+                val w = (size.width - gap * (segments - 1)) / segments
+                val filled = progress.fraction * segments
+                for (i in 0 until segments) {
+                    val x = i * (w + gap)
+                    drawRect(c.border, Offset(x, 0f), Size(w, size.height))
+                    drawRect(if (i < filled) c.accent else c.panelDeep, Offset(x + 1, 1f), Size(w - 2, size.height - 2))
+                }
+            }
+        }
+        if (onCancel != null) {
+            Spacer(Modifier.height(8.dp))
+            PixelButton("Отмена", onCancel, small = true, kind = ButtonKind.GHOST)
+        }
     }
 }
 

@@ -39,8 +39,18 @@ class FakeLlm(override val compact: Boolean = false) : LlmClient {
 
     private fun <T> enc(s: KSerializer<T>, v: T) = SaveCodec.json.encodeToString(s, v)
 
-    override suspend fun json(request: LlmRequest, schema: JsonObject): String {
+    val schemas = mutableListOf<JsonObject>()
+
+    override suspend fun json(request: LlmRequest, schema: JsonObject, onText: ((String) -> Unit)?): String {
         requests += request
+        schemas += schema
+        return answer(request).also { full ->
+            // Отдаём ответ кусками, как настоящий поток, чтобы проверить прогресс.
+            full.chunked(40).runningReduce { acc, part -> acc + part }.forEach { onText?.invoke(it) }
+        }
+    }
+
+    private fun answer(request: LlmRequest): String {
         if (brokenJsonOnce) {
             brokenJsonOnce = false
             return "{ это не json"
@@ -187,5 +197,27 @@ class GameMasterTest {
         val (shortAdj, shortNar) = turnSizes(true)
         assertTrue(shortAdj * 2 < fullAdj, "adjudication $shortAdj vs $fullAdj")
         assertTrue(shortNar * 2 < fullNar, "narration $shortNar vs $fullNar")
+    }
+
+    @Test
+    fun `world creation reports progress by sections`() = runTest {
+        val llm = FakeLlm()
+        val seen = mutableListOf<Progress>()
+        GameMaster(llm).createCanon("мир", seen::add)
+        assertTrue(seen.size > 3)
+        assertTrue(seen.zipWithNext().all { (a, b) -> b.fraction >= a.fraction - 0.001f }, "progress must not go back")
+        assertTrue(seen.last().fraction > 0.8f, "last ${seen.last()}")
+        assertTrue(seen.any { it.label == "навыки" })
+    }
+
+    @Test
+    fun `small models get bounded lists`() = runTest {
+        val llm = FakeLlm(compact = true)
+        GameMaster(llm).createCanon("мир")
+        val skills = llm.schemas.last()["properties"]!!.let { it as JsonObject }["skills"] as JsonObject
+        assertEquals("8", skills["maxItems"].toString())
+        val full = FakeLlm(compact = false)
+        GameMaster(full).createCanon("мир")
+        assertFalse("maxItems" in full.schemas.last().toString())
     }
 }

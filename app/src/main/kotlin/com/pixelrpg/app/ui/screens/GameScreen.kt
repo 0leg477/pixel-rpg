@@ -240,7 +240,7 @@ private fun StoryTab(session: GameSession, ui: SessionUi, send: (String) -> Unit
             item(key = "live") {
                 Column {
                     if (ui.streaming.isNotEmpty()) StoryText(ui.streaming.take(typing.shown), cursor = true)
-                    if (ui.busy && ui.streaming.isEmpty()) LoadingLine(ui.stage ?: "…")
+                    if (ui.busy && ui.streaming.isEmpty()) LoadingLine(ui.stage ?: "…", progress = ui.progress, onCancel = session::cancel)
                     ui.error?.let { ErrorPanel(it, canRetry = ui.lastInput != null || ui.entries.none { e -> e is Entry.Story }, onRetry = session::retry, onClose = session::dismissError) }
                     if (ui.hud.gameOver) {
                         PixelPanel(Modifier.fillMaxWidth(), title = "Конец") {

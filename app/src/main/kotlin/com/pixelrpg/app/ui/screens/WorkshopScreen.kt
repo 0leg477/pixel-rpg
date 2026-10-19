@@ -101,7 +101,9 @@ fun WorkshopScreen(vm: AppViewModel) {
 
         if (ui.busy) {
             Spacer(Modifier.height(16.dp))
-            LoadingLine(ui.stage ?: "Думаю…")
+            PixelPanel(Modifier.fillMaxWidth(), deep = true) {
+                LoadingLine(ui.stage ?: "Думаю…", progress = ui.progress, onCancel = w::cancel)
+            }
         }
         Spacer(Modifier.height(24.dp))
     }

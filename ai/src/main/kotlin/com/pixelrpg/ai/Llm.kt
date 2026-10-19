@@ -92,8 +92,11 @@ interface LlmClient {
     /** Маленькая модель: игре нужно писать ей короче и просить меньше. */
     val compact: Boolean get() = false
 
-    /** Ответ строго по JSON-схеме; возвращает текст JSON. */
-    suspend fun json(request: LlmRequest, schema: JsonObject): String
+    /**
+     * Ответ строго по JSON-схеме; возвращает текст JSON.
+     * [onText] получает весь текст, написанный к этому моменту, — для индикатора прогресса.
+     */
+    suspend fun json(request: LlmRequest, schema: JsonObject, onText: ((String) -> Unit)? = null): String
 
     /** Потоковый текст — для рассказчика, чтобы текст «печатался» сразу. */
     fun stream(request: LlmRequest): Flow<String>

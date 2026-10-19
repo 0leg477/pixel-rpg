@@ -13,7 +13,6 @@ import com.anthropic.errors.RateLimitException
 import com.anthropic.errors.UnauthorizedException
 import com.anthropic.models.messages.CacheControlEphemeral
 import com.anthropic.models.messages.JsonOutputFormat
-import com.anthropic.models.messages.Message
 import com.anthropic.models.messages.MessageCreateParams
 import com.anthropic.models.messages.OutputConfig
 import com.anthropic.models.messages.StopReason
@@ -45,22 +44,45 @@ class AnthropicLlm(private val settings: AiSettings) : LlmClient {
             .build()
     }
 
-    override suspend fun json(request: LlmRequest, schema: JsonObject): String = withContext(Dispatchers.IO) {
+    override suspend fun json(request: LlmRequest, schema: JsonObject, onText: ((String) -> Unit)?): String = withContext(Dispatchers.IO) {
         val format = JsonOutputFormat.builder()
             .schema(JsonOutputFormat.Schema.builder().additionalProperties(schema.mapValues { JsonValue.from(toJava(it.value)) }).build())
             .build()
-        val message = try {
-            client.messages().create(params(request, format))
+        try {
+            collectText(params(request, format), onText)
         } catch (e: BadRequestException) {
             // Если схема API не по нраву (слишком сложная), просим JSON словами — парсер справится.
             if (e.message?.contains("schema", ignoreCase = true) != true) call { throw e }
             val fallback = request.copy(user = request.user + "\n\nОтветь ТОЛЬКО одним JSON-объектом без пояснений, строго по схеме:\n$schema")
-            call { client.messages().create(params(fallback, null)) }
+            call { collectText(params(fallback, null), onText) }
+        } catch (e: LlmException) {
+            throw e
         } catch (e: Exception) {
             call { throw e }
         }
-        checkStop(message)
-        message.content().mapNotNull { block -> block.text().orElse(null)?.text() }.joinToString("")
+    }
+
+    /** Читает ответ потоком, отдаёт накопленный текст в [onText] и проверяет причину остановки. */
+    private fun collectText(params: MessageCreateParams, onText: ((String) -> Unit)?): String {
+        val text = StringBuilder()
+        var stop: StopReason? = null
+        client.messages().createStreaming(params).use { stream ->
+            val events = stream.stream().iterator()
+            while (events.hasNext()) {
+                val next = events.next()
+                next.contentBlockDelta().flatMap { it.delta().text() }.map { it.text() }.orElse(null)?.let {
+                    text.append(it)
+                    onText?.invoke(text.toString())
+                }
+                next.messageDelta().flatMap { it.delta().stopReason() }.orElse(null)?.let { stop = it }
+            }
+        }
+        when (stop) {
+            StopReason.REFUSAL -> throw LlmException("Модель отказалась отвечать на этот запрос. Попробуй сформулировать иначе.", retryable = false)
+            StopReason.MAX_TOKENS -> throw LlmException("Ответ модели оборвался на полуслове. Попробуй ещё раз.", retryable = true)
+            else -> Unit
+        }
+        return text.toString()
     }
 
     override fun stream(request: LlmRequest): Flow<String> = flow {
@@ -101,14 +123,6 @@ class AnthropicLlm(private val settings: AiSettings) : LlmClient {
             .addUserMessage(request.user)
             .outputConfig(output.build())
             .build()
-    }
-
-    private fun checkStop(message: Message) {
-        when (message.stopReason().orElse(null)) {
-            StopReason.REFUSAL -> throw LlmException("Модель отказалась отвечать на этот запрос. Попробуй сформулировать иначе.", retryable = false)
-            StopReason.MAX_TOKENS -> throw LlmException("Ответ модели оборвался на полуслове. Попробуй ещё раз.", retryable = true)
-            else -> Unit
-        }
     }
 
     /** Переводит ошибки SDK в понятные игроку сообщения. */

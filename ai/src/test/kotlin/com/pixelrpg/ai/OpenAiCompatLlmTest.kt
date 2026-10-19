@@ -35,8 +35,10 @@ class OpenAiCompatLlmTest {
                 return@createContext
             }
             val stream = body["stream"]?.jsonPrimitive?.content == "true"
+            // JSON просят с температурой 0.5, рассказ — с 0.8: так отличаем запросы.
+            val wantsJson = body["temperature"]?.jsonPrimitive?.content == "0.5"
             val out = if (stream) {
-                listOf("<thi", "nk>долго думаю</think>", "Ветер ", "воет.\n### ВАРИАНТЫ\n- Идти")
+                (if (wantsJson) reply.chunked(5) else listOf("<thi", "nk>долго думаю</think>", "Ветер ", "воет.\n### ВАРИАНТЫ\n- Идти"))
                     .joinToString("") { chunk ->
                         "data: " + Json.encodeToString(JsonObject.serializer(), chunkJson(chunk)) + "\n\n"
                     } + "data: [DONE]\n\n"

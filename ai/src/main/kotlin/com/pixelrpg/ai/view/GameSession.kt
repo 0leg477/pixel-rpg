@@ -2,6 +2,7 @@ package com.pixelrpg.ai.view
 
 import com.pixelrpg.ai.GameMaster
 import com.pixelrpg.ai.LlmException
+import com.pixelrpg.ai.Progress
 import com.pixelrpg.ai.TurnEvent
 import com.pixelrpg.ai.image.ScenePainter
 import com.pixelrpg.engine.model.AlbumEntry
@@ -11,6 +12,7 @@ import com.pixelrpg.engine.model.LogKind
 import com.pixelrpg.engine.rules.CheckResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +38,8 @@ data class SessionUi(
     val painting: Boolean = false,
     /** Можно ли рисовать сцены: сервис картинок настроен. */
     val canPaint: Boolean = false,
+    /** Насколько готов текущий ответ модели. */
+    val progress: Progress? = null,
 )
 
 /**
@@ -66,7 +70,7 @@ class GameSession(
     fun send(input: String) {
         val text = input.trim()
         if (text.isEmpty() || _ui.value.busy || state.gameOver) return
-        run(text) { master.playTurn(state, text) }
+        run(text) { master.playTurn(state, text) { p -> _ui.update { it.copy(progress = p) } } }
     }
 
     fun retry() {
@@ -75,6 +79,13 @@ class GameSession(
     }
 
     fun dismissError() = _ui.update { it.copy(error = null) }
+
+    /** Прервать долгий ход: что движок уже применил, останется, рассказ — нет. */
+    fun cancel() {
+        job?.cancel()
+    }
+
+    private var job: Job? = null
 
     /** «Что видит герой»: рисует текущую сцену и кладёт её в ленту и альбом. */
     fun paint() {
@@ -87,7 +98,7 @@ class GameSession(
         // Флаг занятости ставится сразу; сама работа всё равно идёт под мьютексом.
         if (_ui.value.busy) return
         _ui.update { it.copy(busy = true, painting = true, stage = "Художник рисует…", error = null) }
-        scope.launch(Dispatchers.Default) {
+        job = scope.launch(Dispatchers.Default) {
             mutex.withLock {
                 try {
                     val file = p.paint(state, dir)
@@ -113,8 +124,8 @@ class GameSession(
     private fun run(input: String?, events: () -> Flow<TurnEvent>) {
         // Флаг занятости ставится сразу; сама работа всё равно идёт под мьютексом.
         if (_ui.value.busy) return
-        _ui.update { it.copy(busy = true, error = null, streaming = "", suggestions = emptyList(), freshRoll = null, lastInput = input, stage = "…") }
-        scope.launch(Dispatchers.Default) {
+        _ui.update { it.copy(busy = true, error = null, streaming = "", suggestions = emptyList(), freshRoll = null, lastInput = input, stage = "…", progress = null) }
+        job = scope.launch(Dispatchers.Default) {
             mutex.withLock {
                 var applied = false
                 try {
@@ -151,7 +162,7 @@ class GameSession(
                     fail("Что-то сломалось: ${e::class.simpleName}: ${e.message?.take(300)}", keepInput = !applied)
                 } finally {
                     if (applied) persistSafely()
-                    _ui.update { it.copy(busy = false, stage = null) }
+                    _ui.update { it.copy(busy = false, stage = null, progress = null, streaming = "") }
                 }
             }
         }
