@@ -1,0 +1,9 @@
+{
+  "name": "karnak-art-lib",
+  "private": true,
+  "description": "Code drawing library for Nights of Karnak character art",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "clipper-lib": "^6.4.2"
+  }
+}
