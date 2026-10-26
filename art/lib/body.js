@@ -161,8 +161,11 @@ function build(specIn = {}, pose = {}, mats = {}) {
   add('torso.waist', waistT, slices.waist, { k: 1.2 });
   add('torso.pelvis', pelT, slices.pelvis, { k: 1.2 });
   // clavicle bar: shoulder width line, sloping into the neck
-  add('torso.clav', chestT, [B.ell([0, sp.shoulder.y + 0.5, sp.shoulder.z - 0.5], [sp.shoulder.x + 0.5, 3.6, 5.2]),
-    ...[-1, 1].map(s => B.ellBetween([s * 3, sp.jugularY - 2.2, -2.4], [s * (sp.shoulder.x - 2), sp.shoulder.y, -1.6], 3.0, 3.6))]);
+  // clavicle + trapezius: sloped bars from the neck to each shoulder (a flat bar made the shoulders square)
+  add('torso.clav', chestT, sp.slopedShoulders
+    ? [-1, 1].flatMap(s => [B.ellBetween([s * 2.5, sp.jugularY - 2.5, -2.2], [s * (sp.shoulder.x - 1.5), sp.shoulder.y + 0.6, -1.4], 2.6, 3.4), B.ellBetween([s * 1.5, sp.jugularY + 0.6, 0.6], [s * (sp.shoulder.x - 1.5), sp.shoulder.y + 1.4, 0.4], 1.6, 2.2)])
+    : [B.ell([0, sp.shoulder.y + 0.5, sp.shoulder.z - 0.5], [sp.shoulder.x + 0.5, 3.6, 5.2]),
+      ...[-1, 1].map(s => B.ellBetween([s * 3, sp.jugularY - 2.2, -2.4], [s * (sp.shoulder.x - 2), sp.shoulder.y, -1.6], 3.0, 3.6))]);
   add('torso.glute', pelT, [-1, 1].map(s => B.ell([s * sp.glutes.x, sp.glutes.y, sp.glutes.z], sp.glutes.r, rot(0, -0.2, 0))));
   if (sp.bust && sp.bust.r[0] > 0 && !sp.bust.separate) {
     const bs = sp.bust;

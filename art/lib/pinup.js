@@ -14,20 +14,23 @@ function body(k = {}, extra = {}) {
   // a slight forward belly, then a quick flare into the hips (the iliac crest is soft on women)
   const R = (y, hw, hd, z) => [y, hw, hd, z];
   const mixW = (a, f) => a * f;
+  // z shifts give the S-curve seen on the references: ribcage forward, lower back hollow, pelvis and glutes back
   const torso = [
-    R(-49, 5.8 * sh, 4.8, -2.0), R(-45, 10.4 * sh, 6.8, -1.2), R(-41, 11.4 * (0.4 + 0.6 * sh), 8.2, -0.2), R(-36, 11.6 * (0.6 + 0.4 * sh), 8.8, 0.4),
-    R(-31, 10.8, 8.4, 0.7), R(-27, mixW(9.2, 0.5 + 0.5 * w), 7.4, 0.6), R(-23, mixW(7.9, w), 6.5, 0.2), R(-19, mixW(8.2, w), 6.5 + bel * 0.5, 0.2 + bel * 0.3),
-    R(-15, mixW(10.0, (w + h) / 2), 7.0 + bel * 0.8, 0.5 + bel * 0.6), R(-11, mixW(12.8, (w + 2 * h) / 3), 7.8 + bel * 0.6, 0.8 + bel * 0.4),
-    R(-6, 15.6 * h, 9.0, 0.6), R(-1, 17.6 * h, 10.2, -0.2), R(4, 17.4 * h, 10.6, -1.0), R(9, 14.2 * h, 9.2, -1.0)];
+    R(-49, 5.8 * sh, 4.8, -1.4), R(-45, 9.6 * sh, 6.6, -0.6), R(-41, 10.8 * (0.4 + 0.6 * sh), 8.0, 0.4), R(-36, 11.2 * (0.6 + 0.4 * sh), 8.6, 1.0),
+    R(-31, 10.6, 8.2, 1.2), R(-27, mixW(9.0, 0.5 + 0.5 * w), 7.2, 1.0), R(-23, mixW(7.8, w), 6.3, 0.7), R(-19, mixW(8.1, w), 6.2 + bel * 0.5, 0.6 + bel * 0.3),
+    R(-15, mixW(10.0, (w + h) / 2), 6.6 + bel * 0.8, 0.5 + bel * 0.6), R(-11, mixW(12.8, (w + 2 * h) / 3), 7.2 + bel * 0.6, 0.2 + bel * 0.4),
+    R(-6, 15.6 * h, 8.4, -0.4), R(-1, 17.4 * h, 9.4, -1.2), R(4, 17.0 * h, 9.8, -1.8), R(9, 13.8 * h, 8.6, -1.8)];
   return Body.deepMerge({
-    neck: { len: 5.8, r: 4.8, rTop: 4.3 },
+    neck: { len: 5.2, r: 5.0, rTop: 4.5 },
     torso,
-    shoulder: { x: 12.0 * sh },
-    bust: { r: [6.6 * b, 6.2 * b, 5.8 * b], x: 6.2 * Math.sqrt(b), y: -31.8, z: 5.6 + (b - 1) * 2.0, splay: 0.32, droop: 0.12, separate: true, teardrop: true, slope: 9 },
-    glutes: { r: [9.4 * h, 10.2 * h, 9.0 * h], x: 7.6 * h, y: 2.5, z: -4.0 },
-    arm: { upper: 21, fore: 18.5, r: [3.8, 3.3, 2.7, 3.0, 3.05, 2.15].map(v => v * ar) },
-    leg: { thigh: 40, shin: 30, meta: 14, hipX: 9.0 * Math.sqrt(h), r: [10.0, 10.0, 5.2, 4.8, 5.4, 2.7, 2.2], thighR: [8.8, 10.6, 9.8, 7.6, 5.4].map((v, i) => v * (i < 3 ? t : 1 + (t - 1) * 0.5)) },
-    abs: 0, muscle: k.muscle || 0,
+    // shoulders lower than the jugular notch: the neck-to-shoulder line slopes down (trapezius)
+    shoulder: { x: 11.6 * sh, y: -43.6, z: -1.2 },
+    bust: { r: [6.9 * b, 6.5 * b, 6.6 * b], x: 6.2 * Math.sqrt(b), y: -34.0, z: 6.4 + (b - 1) * 2.4, splay: 0.3, droop: 0.06, separate: true, teardrop: true, slope: 8 },
+    glutes: { r: [9.4 * h, 10.0 * h, 9.2 * h], x: 7.6 * h, y: 1.5, z: -5.2 },
+    arm: { upper: 21, fore: 18.5, r: [3.4, 2.9, 2.3, 2.65, 2.65, 1.85].map(v => v * ar) },
+    // thighs thickest at the top and tapering to a small knee; calves with a bulge, slim ankles
+    leg: { thigh: 40, shin: 33, meta: 14, digitigrade: false, hipX: 9.0 * Math.sqrt(h), r: [10.0, 10.0, 5.0, 4.2, 4.9, 2.5, 2.1], thighR: [9.8, 9.6, 8.4, 6.6, 4.9].map((v, i) => v * (i < 3 ? t : 1 + (t - 1) * 0.5)) },
+    abs: 0, muscle: k.muscle || 0, slopedShoulders: true,
     groundY: 77,
   }, extra);
 }

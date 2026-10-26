@@ -20,7 +20,11 @@ function build(ch, { pose = {}, expr = {} } = {}) {
     for (const grp of model.groups) for (const part of grp.parts) {
       if (mf.parts.some(n => part.name === n || (n.endsWith('*') && part.name.startsWith(n.slice(0, -1))))) {
         const prev = part.matField;
-        part.matField = prev ? (p => mf.fn(p) || prev(p)) : mf.fn;
+        // mf.frame: evaluate in that frame (e.g. the pelvis) instead of the part's own frame, so one
+        // garment stays continuous across every part it covers
+        let fn = mf.fn;
+        if (mf.frame) { const inv = G.tinv(mf.frame), pf = part.frame || G.T(); fn = p => mf.fn(G.tapply(inv, G.tapply(pf, p))); }
+        part.matField = prev ? (p => fn(p) || prev(p)) : fn;
       }
     }
   }
@@ -35,9 +39,22 @@ function build(ch, { pose = {}, expr = {} } = {}) {
 function render(doc, ch, { pose = {}, expr = {}, view, box, step = 1, light = {}, lineScale = 1, layer = 'char', add = true, name = ch.name } = {}) {
   const b = build(ch, { pose, expr });
   const v = viewOf(view);
-  const Rs = new Raster({ ...box, step }).render(b.model, v);
+  // sculpt mode: smooth SDF meshes rasterised into the same buffers (cached per pose + expression)
+  let Rs;
+  if (ch.sculpt) {
+    const S = require('./sdf');
+    const key = JSON.stringify([pose, expr && expr.ears]);
+    ch._sculptCache = ch._sculptCache || new Map();
+    if (!ch._sculptCache.has(key)) ch._sculptCache.set(key, S.sculpt(b.model, { h: ch.sculpt.h || 0.45 }));
+    Rs = new Raster({ ...box, step }).renderMeshes(b.model, v, ch._sculptCache.get(key));
+  } else Rs = new Raster({ ...box, step }).render(b.model, v);
   const ctx = { ...b, Rs, view: v, light };
-  const markings = [...(ch.markings ? ch.markings(ctx) : []), ...b.hair.markings];
+  // markings with a `frame` are evaluated in that frame (continuous across parts), like garment fields
+  const markings = [...(ch.markings ? ch.markings(ctx) : []), ...b.hair.markings].map(mk => {
+    if (!mk.frame) return mk;
+    const inv = G.tinv(mk.frame), fn = mk.fn;
+    return { ...mk, fn: (p, id, R) => { const part = R.parts[R.part1[id]]; return fn(G.tapply(inv, G.tapply(part.frame || G.T(), p)), id, R); } };
+  });
   const tufts = ch.tufts ? ch.tufts(ctx) : [];
   const res = T.figure(Rs, doc, { materials: ch.materials, markings, tufts, light, lineScale, add: false, name, style: ch.style, shadowDist: { head: b.head.R * 0.26, 'head.earL': b.head.R * 0.3, 'head.earR': b.head.R * 0.3, ...(ch.shadowDist || {}) },
     postShade: () => ch.postShade ? ch.postShade(doc, ctx) : '' });

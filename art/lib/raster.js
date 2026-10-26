@@ -164,10 +164,7 @@ class Raster {
   }
 
   // ---------- main pass ----------
-  render(model, view) {
-    this.view = view; this.model = model;
-    const S = this.step;
-    model.groups.forEach((grp, gi) => {
+  _setupGroup(grp, gi, view) {
       const k = (grp.k == null ? 6 : grp.k) * view.s; // blend radius in screen units
       const parts = grp.parts.map(part => {
         const pi = this.parts.length;
@@ -190,6 +187,13 @@ class Raster {
         return P;
       });
       this.groups.push({ name: grp.name, k, parts: parts.map(p => p.pi), line: grp.line });
+      return { k, parts };
+  }
+  render(model, view) {
+    this.view = view; this.model = model;
+    const S = this.step;
+    model.groups.forEach((grp, gi) => {
+      const { k, parts } = this._setupGroup(grp, gi, view);
       if (!parts.length) return;
       // group bbox in grid coords
       const gb = G.bbox([parts.flatMap(p => [[p.bb[0], p.bb[1]], [p.bb[2], p.bb[3]]])]);
@@ -272,6 +276,109 @@ class Raster {
     return this;
   }
 
+  // ---------- mesh pass (smooth SDF sculpts) ----------
+  // meshes: [{ verts, normals, tris, vpart }] in model space; vpart[i] = [groupIndex, partIndexInGroup].
+  // Fills the same buffers as render(): depth, smooth normals, group/part/material labels, coverage fields.
+  renderMeshes(model, view, meshes) {
+    this.view = view; this.model = model; this.meshes = meshes;
+    const partOf = [];
+    model.groups.forEach((grp, gi) => { const { parts } = this._setupGroup(grp, gi, view); partOf[gi] = parts.map(p => p.pi); });
+    const W = this.W, H = this.H, S = this.step;
+    const pidBuf = new Int32Array(W * H).fill(-1);
+    // one label group per mesh: its most common model group
+    this.lgMap = model.groups.map((g, gi) => gi);
+    this.lg1 = new Int16Array(W * H).fill(-1);
+    const lgOfMesh = meshes.map(m => {
+      const cnt = new Map(); for (const [g] of m.vpart) if (g >= 0) cnt.set(g, (cnt.get(g) || 0) + 1);
+      let best = -1, bc = -1; for (const [g, c] of cnt) if (c > bc) { bc = c; best = g; }
+      for (const g of cnt.keys()) this.lgMap[g] = best;
+      return best;
+    });
+    for (const [mi, m] of meshes.entries()) {
+      const LG = lgOfMesh[mi];
+      const V = m.verts.map(p => toView(view, p));
+      const Nv = m.normals.map(n => G.mvec(view.R, n));
+      const PI = m.vpart.map(([g, k]) => (partOf[g] ? partOf[g][k] : -1));
+      const T = m.tris;
+      for (let t = 0; t < T.length; t += 3) {
+        const ia = T[t], ib = T[t + 1], ic = T[t + 2];
+        const a = V[ia], b = V[ib], c = V[ic];
+        const area = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+        if (Math.abs(area) < 1e-9) continue;
+        // cull triangles that face away: view space (x right, y down, z toward the viewer) is right-handed,
+        // so an outward-wound triangle facing the viewer has positive screen area
+        if (area < 0) continue;
+        const x0 = Math.max(0, Math.floor(this.gx(Math.min(a[0], b[0], c[0])))), x1 = Math.min(W - 1, Math.ceil(this.gx(Math.max(a[0], b[0], c[0]))));
+        const y0 = Math.max(0, Math.floor(this.gy(Math.min(a[1], b[1], c[1])))), y1 = Math.min(H - 1, Math.ceil(this.gy(Math.max(a[1], b[1], c[1]))));
+        for (let j = y0; j <= y1; j++) {
+          const py = this.py(j);
+          for (let i = x0; i <= x1; i++) {
+            const px = this.px(i);
+            const w0 = ((b[0] - px) * (c[1] - py) - (b[1] - py) * (c[0] - px)) / area;
+            const w1 = ((c[0] - px) * (a[1] - py) - (c[1] - py) * (a[0] - px)) / area;
+            const w2 = 1 - w0 - w1;
+            if (w0 < -1e-6 || w1 < -1e-6 || w2 < -1e-6) continue;
+            const z = w0 * a[2] + w1 * b[2] + w2 * c[2];
+            const id = j * W + i;
+            const pi = w0 >= w1 && w0 >= w2 ? PI[ia] : w1 >= w2 ? PI[ib] : PI[ic];
+            if (pi < 0) continue;
+            const g = this.parts[pi].gi;
+            if (z > this.z1[id]) {
+              if (this.g1[id] >= 0 && this.g1[id] !== g) { this.z2[id] = this.z1[id]; this.g2[id] = this.g1[id]; }
+              this.z1[id] = z; this.g1[id] = g; pidBuf[id] = pi; this.lg1[id] = LG;
+              const na = Nv[ia], nb = Nv[ib], nc = Nv[ic];
+              let nx = w0 * na[0] + w1 * nb[0] + w2 * nc[0], ny = w0 * na[1] + w1 * nb[1] + w2 * nc[1], nz = w0 * na[2] + w1 * nb[2] + w2 * nc[2];
+              if (nz < 0.02) nz = 0.02;
+              const l = Math.hypot(nx, ny, nz) || 1;
+              this.nx[id] = nx / l; this.ny[id] = ny / l; this.nz[id] = nz / l;
+            } else if (g !== this.g1[id] && z > this.z2[id]) { this.z2[id] = z; this.g2[id] = g; }
+          }
+        }
+      }
+    }
+    // labels, materials and garment fields
+    for (let id = 0; id < W * H; id++) {
+      const pi = pidBuf[id]; if (pi < 0) continue;
+      const P = this.parts[pi];
+      this.part1[id] = pi; this.mat1[id] = P.mid; this.mf1[id] = 1e6; this.mat2[id] = -1;
+      if (P.matField) {
+        const i = id % W, j = (id / W) | 0;
+        const mf = P.matField(this.toLocal(pi, [this.px(i), this.py(j), this.z1[id]]));
+        if (mf) { this.mat1[id] = this.matId(mf.mat); this.mat2[id] = this.matId(mf.alt); this.mf1[id] = Math.max(0.01, mf.d * view.s); }
+      }
+    }
+    // coverage: signed chamfer distances (union, and inside each group's visible region)
+    const INF = 1e9, inside = new Float32Array(W * H), outside = new Float32Array(W * H);
+    const chamfer = (d, same) => {
+      const a = S, b = S * Math.SQRT2;
+      for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const id = j * W + i; if (!d[id]) continue; let v = d[id];
+        if (i > 0 && same(id, id - 1)) v = Math.min(v, d[id - 1] + a);
+        if (j > 0) { if (same(id, id - W)) v = Math.min(v, d[id - W] + a); if (i > 0 && same(id, id - W - 1)) v = Math.min(v, d[id - W - 1] + b); if (i < W - 1 && same(id, id - W + 1)) v = Math.min(v, d[id - W + 1] + b); }
+        d[id] = v; }
+      for (let j = H - 1; j >= 0; j--) for (let i = W - 1; i >= 0; i--) { const id = j * W + i; if (!d[id]) continue; let v = d[id];
+        if (i < W - 1 && same(id, id + 1)) v = Math.min(v, d[id + 1] + a);
+        if (j < H - 1) { if (same(id, id + W)) v = Math.min(v, d[id + W] + a); if (i < W - 1 && same(id, id + W + 1)) v = Math.min(v, d[id + W + 1] + b); if (i > 0 && same(id, id + W - 1)) v = Math.min(v, d[id + W - 1] + b); }
+        d[id] = v; }
+    };
+    const edge = (id, test) => { const i = id % W, j = (id / W) | 0; return (i > 0 && test(id - 1)) || (i < W - 1 && test(id + 1)) || (j > 0 && test(id - W)) || (j < H - 1 && test(id + W)); };
+    for (let id = 0; id < W * H; id++) {
+      const cov = this.g1[id] >= 0;
+      inside[id] = cov ? (edge(id, q => this.lg1[q] !== this.lg1[id]) ? S * 0.5 : INF) : 0;
+      outside[id] = cov ? 0 : (edge(id, q => this.g1[q] >= 0) ? S * 0.5 : INF);
+    }
+    chamfer(inside, (p, q) => this.lg1[p] === this.lg1[q]);
+    chamfer(outside, (p, q) => this.g1[q] < 0);
+    // union coverage: distance to the silhouette (not to group borders)
+    const covIn = new Float32Array(W * H);
+    for (let id = 0; id < W * H; id++) covIn[id] = this.g1[id] >= 0 ? (edge(id, q => this.g1[q] < 0) ? S * 0.5 : INF) : 0;
+    chamfer(covIn, (p, q) => this.g1[q] >= 0);
+    for (let id = 0; id < W * H; id++) {
+      if (this.g1[id] >= 0) { this.f1[id] = Math.min(inside[id], 40); this.cov[id] = Math.min(covIn[id], 40); }
+      else { this.cov[id] = -Math.min(outside[id], 40); }
+    }
+    return this;
+  }
+
   // ---------- fields ----------
   // Visible region field for a group (positive where the group is front-most and covers).
   groupField(gi) {
@@ -284,8 +391,20 @@ class Raster {
     return out;
   }
   // Visible region field for a label (group + material).
+  // label group of a model group (sculpt mode merges the groups of one smooth mesh into one label group)
+  lgOf(gi) { return this.lgMap ? this.lgMap[gi] : gi; }
   labelField(gi, mid) {
     const N = this.W * this.H, out = new Float32Array(N);
+    if (this.lg1) {
+      for (let id = 0; id < N; id++) {
+        if (this.lg1[id] !== gi) { out[id] = -2 * this.step; continue; }
+        const vis = this.f1[id];
+        if (this.mat1[id] === mid) out[id] = Math.min(vis, this.mf1[id]);
+        else if (this.mat2[id] === mid) out[id] = Math.min(vis, -this.mf1[id]);
+        else out[id] = Math.min(vis, -this.step);
+      }
+      return out;
+    }
     for (let id = 0; id < N; id++) {
       if (this.g1[id] === gi) {
         const vis = this.g2[id] >= 0 ? Math.min(this.f1[id], this.z1[id] - this.z2[id]) : this.f1[id];
@@ -300,9 +419,10 @@ class Raster {
   labels() {
     const set = new Map();
     const N = this.W * this.H;
+    const lg = this.lg1 || this.g1;
     for (let id = 0; id < N; id++) if (this.g1[id] >= 0 && this.f1[id] > 0) {
-      const key = this.g1[id] + ':' + this.mat1[id];
-      if (!set.has(key)) set.set(key, { gi: this.g1[id], mid: this.mat1[id], count: 0, zsum: 0 });
+      const key = lg[id] + ':' + this.mat1[id];
+      if (!set.has(key)) set.set(key, { gi: lg[id], mid: this.mat1[id], count: 0, zsum: 0 });
       const e = set.get(key); e.count++; e.zsum += this.z1[id];
     }
     return [...set.values()].map(e => ({ ...e, zavg: e.zsum / e.count, group: this.groups[e.gi].name, mat: this.matNames[e.mid] }));
@@ -378,7 +498,8 @@ class Raster {
     }
     const pad = 4 / s;
     const lv = { R: Rl, s, ox: -(x0 - pad) * s, oy: -(y0 - pad) * s };
-    const LR = new Raster({ x0: 0, y0: 0, w: (x1 - x0 + 2 * pad) * s, h: (y1 - y0 + 2 * pad) * s, step: this.step }).render(this.model, lv);
+    const LR0 = new Raster({ x0: 0, y0: 0, w: (x1 - x0 + 2 * pad) * s, h: (y1 - y0 + 2 * pad) * s, step: this.step });
+    const LR = this.meshes ? LR0.renderMeshes(this.model, lv, this.meshes) : LR0.render(this.model, lv);
     this.lightRaster = LR;
     const N = this.W * this.H, out = new Float32Array(N).fill(-1);
     const Rt = G.transpose(view.R);

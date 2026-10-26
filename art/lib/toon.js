@@ -75,7 +75,7 @@ function figure(R, doc, opt = {}) {
     const rings = shapesOf(R, f, { smooth: mk.smooth == null ? 2 : mk.smooth });
     if (!rings.length) return null;
     // clip to the visible region of the groups that own these parts
-    const gis = new Set(R.parts.filter(p => pis.has(p.pi)).map(p => p.gi));
+    const gis = new Set(R.parts.filter(p => pis.has(p.pi)).map(p => R.lgOf(p.gi)));
     const own = P.union(labelShapes.filter(l => gis.has(l.gi)).flatMap(l => P.normalize(l.rings)));
     if (!own.length) return null;
     const clip = doc.clip(D(own), { rule: 'nonzero' });
@@ -143,7 +143,8 @@ function figure(R, doc, opt = {}) {
     if (!region.length) continue;
     const clip = doc.clip(D(region), { rule: 'nonzero' });
     const box = subgrid(R, G.bbox(region), 4);
-    const inG = id => R.g1[id] === gi && R.mat1[id] === mid;
+    const LGB = R.lg1 || R.g1;
+    const inG = id => LGB[id] === gi && R.mat1[id] === mid;
     const layers = [];
     const tints = groupTints(lb.spec, light);
     for (const ly of LAYERS) {
@@ -250,7 +251,7 @@ function figure(R, doc, opt = {}) {
   // 5b. occluding contours from each part's rim over a farther surface
   const occW = (opt.occWidth || 2.4) * lw;
   const tau0 = (opt.tau0 || 2.5) * Math.max(1, R.view.s / 4), tau1 = (opt.tau1 || 14) * Math.max(1, R.view.s / 4);
-  for (const part of R.parts) {
+  for (const part of (R.meshes ? [] : R.parts)) {
     if (part.noLine) continue;
     const pf = partField(R, part.pi);
     if (!pf) continue;
@@ -301,8 +302,10 @@ function figure(R, doc, opt = {}) {
   }
   // 5b'. groups that always get a line (locks, fingers, coins): trace the boundary of the *visible* region,
   // so a lock sunk into the cap gets a clean line along the intersection instead of a dashed rim
+  // in sculpt mode (meshes) every group gets this pass: its visible-region border is inked where it lies in
+  // front of another group, the width growing with the depth gap (like 5b, but from the depth buffer)
   R.groups.forEach((grp, gi) => {
-    if (grp.line !== 'always') return;
+    if (grp.line !== 'always' && !R.meshes) return;
     const bb = [1e9, 1e9, -1e9, -1e9];
     for (const part of R.parts) if (part.gi === gi && part.bb) { bb[0] = Math.min(bb[0], part.bb[0]); bb[1] = Math.min(bb[1], part.bb[1]); bb[2] = Math.max(bb[2], part.bb[2]); bb[3] = Math.max(bb[3], part.bb[3]); }
     if (bb[2] < bb[0]) return;
@@ -324,14 +327,20 @@ function figure(R, doc, opt = {}) {
     for (const ring of rings) {
       const pts = G.resample(ring, 1.2 * lw, true);
       const nrm = L.leftNormals(pts, true);
-      const inner = pts.map((p, i) => { const oid = R.idAt(p[0] + nrm[i][0] * 1.6, p[1] + nrm[i][1] * 1.6); return oid >= 0 && R.g1[oid] >= 0 && R.g1[oid] !== gi; });
-      for (const run of L.runs(pts.length, i => inner[i], 3)) {
+      const always = grp.line === 'always';
+      const wv = pts.map((p, i) => {
+        const oid = R.idAt(p[0] + nrm[i][0] * 1.6, p[1] + nrm[i][1] * 1.6), iid = R.idAt(p[0] - nrm[i][0] * 1.6, p[1] - nrm[i][1] * 1.6);
+        if (oid < 0 || R.g1[oid] < 0 || R.g1[oid] === gi || iid < 0 || R.g1[iid] !== gi) return 0;
+        const gap = R.z1[iid] - R.z1[oid];
+        const wGap = gap > 0 ? occW * G.smoothstep(tau0, tau1, gap) : 0;
+        return Math.max(always ? (grp.lineK || 0.5) * occW : 0, wGap);
+      });
+      for (const run of L.runs(pts.length, i => wv[i] > 0.12 * occW, 3)) {
         const idx = run.idx, seg = idx.map(i => pts[i]);
         const mid = idx[Math.floor(idx.length / 2)], pm = pts[mid];
         const id = R.idAt(pm[0] - nrm[mid][0] * 2, pm[1] - nrm[mid][1] * 2);
         const col = id >= 0 && R.g1[id] >= 0 ? lineCol(id) : '#2a1f2e';
-        const wv = (grp.lineK || 0.5) * occW;
-        lines.push(path(G.polyD(L.taper(seg, wv, { profile: L.taperProfile({ start: run.closed ? 0 : 0.15, end: run.closed ? 0 : 0.15 }), step: 0 })), { fill: col }));
+        lines.push(path(G.polyD(L.taper(seg, (t, k) => wv[idx[Math.min(k, idx.length - 1)]], { profile: L.taperProfile({ start: run.closed ? 0 : 0.15, end: run.closed ? 0 : 0.15 }), step: 0 })), { fill: col }));
       }
     }
   });

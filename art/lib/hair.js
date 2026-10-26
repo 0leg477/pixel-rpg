@@ -52,7 +52,8 @@ function build(style, head, opt = {}) {
   const groups = [], markings = [], strands = [], extras = [];
   const parts = [];
   const u = p => [p[0] / R, p[1] / R, p[2] / R];
-  const addShell = (name, prims, keepU, extra = {}) => parts.push({ name, mat, frame, prims: prims.map(X), keep: keepU ? (p => keepU(u(p))) : null, inner: true, k: 0.08 * R, ...extra });
+  // keepU works in head units: keepScale converts it to world units for the SDF sculpt
+  const addShell = (name, prims, keepU, extra = {}) => parts.push({ name, mat, frame, prims: prims.map(X), keep: keepU ? (p => keepU(u(p))) : null, keepScale: R, inner: true, shellT: 0.16 * R, k: 0.08 * R, ...extra });
   const addLock = (name, ctrl, rprof, extra = {}) => {
     const pts = lockPath(ctrl);
     parts.push({ name, mat, frame, prims: B.sweep(pts, rprof, { spacing: 0.25 }).map(X), k: 0.05 * R, ...extra });
@@ -63,21 +64,29 @@ function build(style, head, opt = {}) {
   if (style === 'bob') {
     const w = { bang: o.bang ?? -0.3, x: o.winX ?? 0.74, z: o.winZ ?? 0.0, taper: 0.05 };
     const cut = o.cut ?? 0.66;
-    const cc = [0, -0.08, -0.05], rr = [1.05, 1.02, 1.06];
-    addShell('hair.cap', [B.ell(cc, [1.05, 1.02, 1.06]), B.ell([0, 0.38, -0.14], [0.99, 0.6, 0.94])],
-      p => Math.min(cut + 0.06 * p[2] - p[1], -windowField(p, w)));
+    const cc = o.cc || [0, -0.08, -0.05], rr = o.rr || [1.05, 1.02, 1.06];
+    // strand grooves carved into the shell (used by the SDF sculpt; the raster ignores `disp`):
+    // azimuthal around the crown axis, so they run from the crown down; a blunt jag along the fringe edge
+    const grooves = o.grooves || 0;
+    const disp = grooves ? (p => {
+      const q = u(p), dx = q[0] - cc[0], dz = q[2] - cc[2], rad = Math.hypot(dx, dz);
+      const phi = Math.atan2(dx, dz), g = Math.pow(0.5 + 0.5 * Math.cos(phi * grooves), 6);
+      return (0.035 * g * Math.min(1, rad / 0.35)) * R;
+    }) : null;
+    addShell('hair.cap', [B.ell(cc, rr), B.ell([cc[0], cc[1] + 0.46, cc[2] - 0.09], [rr[0] * 0.94, rr[1] * 0.6, rr[2] * 0.89])],
+      p => Math.min(cut + 0.06 * p[2] - p[1] + (grooves ? 0.03 * Math.cos(Math.atan2(p[0], p[2]) * grooves * 0.5) : 0), -windowField(p, w)), disp ? { disp } : {});
     // bangs: a row of blunt clumps from the crown to the brow line
     const latOf = y => Math.asin(Math.max(-1, Math.min(1, (y - cc[1]) / rr[1])));
-    const nb = o.bangClumps || 9;
+    const nb = o.clumps === false ? 0 : (o.bangClumps || 9);
     for (let i = 0; i < nb; i++) {
       const f = i / (nb - 1) * 2 - 1, lon1 = f * (o.bangSpread ?? 0.78);
       const cl = clump(cc, rr, { lat0: -1.25, lon0: lon1 * 0.35, lat1: latOf(w.bang) + 0.025 * Math.cos(i * 2.1), lon1, w: 0.33 * 9 / nb + 0.04, t: 0.055, lift: 0.0, tip: o.bangTip ?? 0.85, bulge: 0.035 });
       parts.push({ name: 'hair.bang' + i, mat, frame, prims: cl.prims.map(X), k: 0.04 * R });
     }
     // side curtains: vertical clumps falling to the cut line
-    for (const s of [-1, 1]) for (let i = 0; i < 4; i++) {
+    for (const s of [-1, 1]) for (let i = 0; i < (o.clumps === false ? 0 : 4); i++) {
       const lon = s * (1.0 + Math.max(0, w.x - 0.9) * 1.1 + i * 0.3); // curtains start behind the face window
-      const cl = clump(cc, [1.05, 1.02, 1.02], { lat0: -1.0, lon0: lon * 0.85, lat1: latOf(cut) + 0.06, lon1: lon + s * 0.04, w: 0.38, t: 0.06, lift: 0.0, tip: 0.85, bulge: 0.035, curl: -0.08, n: 18 });
+      const cl = clump(cc, [rr[0], rr[1], rr[2] * 0.97], { lat0: -1.0, lon0: lon * 0.85, lat1: latOf(cut) + 0.06, lon1: lon + s * 0.04, w: 0.38, t: 0.06, lift: 0.0, tip: 0.85, bulge: 0.035, curl: -0.08, n: 18 });
       parts.push({ name: 'hair.side' + (s < 0 ? 'L' : 'R') + i, mat, frame, prims: cl.prims.map(X), k: 0.04 * R });
     }
     if (o.ring) markings.push(ring({ c: cc, lat: -0.62, width: 0.04, jag: 0.05, n: 30 }));

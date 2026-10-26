@@ -17,23 +17,31 @@ const both = (fn) => [fn(-1), fn(1)];
 // prims: list of [name, prim] in unit space. ears: ear spec. eyes: placement. nose/mouth: shapes and anchors.
 const SPECIES = {
   cat: {
-    // anime-furry cat girl: big round cranium, eyes large and LOW, a short snout that clearly breaks
-    // the profile (top part of the skull, bottom hinged at the jaw), narrow cheeks into a small chin
+    // Landmarks measured on sculpted anthro-cat references (head height H = crown..chin ≈ 1.5 units):
+    // eyes at ~0.5H, nose tip ~0.68H, mouth ~0.75H; cheekbones are the widest part (~0.85H); the snout
+    // sticks out ~0.25H in front of the eye plane: nose bridge from between the eyes, nose at the tip,
+    // two upper-lip pads, a small chin set back; the skull sits up and back, the jaw runs to the ear.
     prims: () => [
-      ['cranium', B.ell([0, -0.1, -0.06], [0.98, 0.95, 0.94])],
-      ...both(s => ['cheek', B.ell([0.33 * s, 0.2, 0.28], [0.44, 0.38, 0.42])]),
-      ['jaw', B.ellBetween([0, 0.26, 0.18], [0, 0.56, 0.56], 0.27, 0.24)],
-      ['muzzle', B.ell([0, 0.33, 0.9], [0.2, 0.16, 0.21])],
-      ['muzzle', B.ellBetween([0, 0.04, 0.8], [0, 0.3, 1.04], 0.11, 0.09)],
-      ['muzzle', B.ell([0, 0.49, 0.8], [0.13, 0.09, 0.13])],
+      ['cranium', B.ell([0, -0.42, -0.12], [0.76, 0.6, 0.68])],
+      // forehead: a near-vertical face plane above the eyes (a round skull alone slopes the face down)
+      ['brow', B.ell([0, -0.52, 0.26], [0.58, 0.5, 0.4])],
+      // cheekbones: widest at eye level, the face narrows from here to the chin (V shape)
+      ...both(s => ['cheek', B.ell([0.4 * s, -0.24, 0.2], [0.36, 0.25, 0.32], G.euler(0.4 * s, 0, 0.2 * s))]),
+      ['jaw', B.ellBetween([0, -0.08, 0.02], [0, 0.34, 0.5], 0.3, 0.2)],
+      // snout as a wedge: a wide base that grows out of the cheeks, the bridge on top, nose and lip pads in front
+      ['muzzle', B.ell([0, 0.02, 0.52], [0.36, 0.25, 0.38])],
+      ['muzzle', B.ellBetween([0, -0.42, 0.56], [0, -0.08, 0.82], 0.12, 0.1)],
+      ['muzzle', B.ell([0, -0.04, 0.8], [0.14, 0.09, 0.11])],
+      ...both(s => ['muzzle', B.ell([0.105 * s, 0.09, 0.73], [0.15, 0.1, 0.13])]),
+      ['muzzle', B.ell([0, 0.26, 0.6], [0.14, 0.11, 0.13])],
     ],
-    k: 0.09,
-    ear: { base: [0.56, -0.66, -0.06], w: 0.52, h: 0.98, out: 0.36, back: -0.12, poly: [[-1, 0], [-0.55, 0.45], [-0.05, 1], [0.35, 0.5], [1, 0.02], [0, -0.1]], cup: [0.6, 0.2] },
-    eyes: { theta: 0.42, phi: 0.1, w: 0.38, r: 0.97, tilt: 0.12, pupil: 'slit' },
-    nose: { at: [0, 0.27], shape: 'cat', w: 0.11, h: 0.075, face: 0.6 },
+    k: 0.14, partK: 0.1,
+    ear: { base: [0.46, -0.8, -0.24], w: 0.5, h: 0.98, out: 0.4, back: -0.14, poly: [[-1, 0], [-0.55, 0.45], [-0.05, 1], [0.35, 0.5], [1, 0.02], [0, -0.1]], cup: [0.6, 0.2] },
+    eyes: { theta: 0.48, phi: -0.33, w: 0.25, r: 0.97, tilt: 0.12, pupil: 'slit' },
+    nose: { at: [0, -0.05], shape: 'cat', w: 0.105, h: 0.07, face: 0.6, z: 1.2 },
     // a small mouth under the nose (no philtrum / ':3' loop — it read as a mustache at pin-up scale)
-    mouth: { center: [0, 0.45], corner: [0.08, 0.435], depth: 0.012, kind: 'canid', dimples: false },
-    whiskers: { from: [[0.14, 0.36], [0.14, 0.4]], len: 0.45, spread: 0.2 },
+    mouth: { center: [0, 0.05], corner: [0.075, 0.04], depth: 0.012, kind: 'canid', dimples: false },
+    whiskers: { from: [[0.16, 0.05], [0.16, 0.09]], len: 0.45, spread: 0.2 },
     muzzleBox: [0, 0.48, 0.74, 0.42, 0.3, 0.38],
   },
   fennec: {
@@ -170,7 +178,8 @@ function build(species, opts = {}) {
   const partFrame = { R: S.R, t: S.t }; // local (world units) -> world
   const byName = {};
   for (const [name, pr] of prims) (byName[name] = byName[name] || []).push(xf(pr));
-  const parts = Object.entries(byName).map(([name, ps]) => ({ name: 'head.' + name, mat: (opts.partMats && opts.partMats[name]) || mats.fur, prims: ps, frame: partFrame }));
+  // sp.partK: smooth blend radius (head units) between the prims of one part (otherwise a hard union)
+  const parts = Object.entries(byName).map(([name, ps]) => ({ name: 'head.' + name, mat: (opts.partMats && opts.partMats[name]) || mats.fur, prims: ps, frame: partFrame, ...(sp.partK ? { k: sp.partK * R } : {}) }));
   const headGroup = { name: opts.groupName || 'head', k: sp.k * R, parts };
 
   // ears
@@ -373,7 +382,7 @@ function noseShape(doc, n, P2, sc, look) {
     const d = poly(pts);
     const a = P2(0, -h * 0.6), b = P2(0, h * 0.45);
     out.push(path(d, { fill: doc.linear([[0, r.hi], [0.55, col], [1, r.shadow]], { x1: a[0], y1: a[1], x2: b[0], y2: b[1], units: 'userSpaceOnUse' }) }));
-    out.push(path(d, { fill: 'none', stroke: r.line, 'stroke-width': 0.035 * sc, 'stroke-linejoin': 'round' }));
+    out.push(path(d, { fill: 'none', stroke: r.line, 'stroke-width': Math.min(0.035, n.w * 0.16) * sc, 'stroke-linejoin': 'round' }));
     // nostrils
     for (const s of [-1, 1]) out.push(path(G.polyD(Ln.taper([P2(s * w * 0.75, -h * 0.05), P2(s * w * 0.42, h * 0.1), P2(s * w * 0.18, h * 0.06)], 0.045 * sc, { profile: Ln.taperProfile({ start: 0.3, end: 0.4 }) })), { fill: r.line }));
     out.push(path(poly([[-w * 0.35, -h * 0.38], [0, -h * 0.47], [w * 0.2, -h * 0.4], [0, -h * 0.25]]), { fill: '#ffffff', opacity: 0.55 }));
