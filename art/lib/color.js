@@ -81,7 +81,7 @@ function ramp(base, { warmLight = true, depth = 1 } = {}) {
     shadow: shift(base, { dL: -(low ? 0.07 : 0.14) * depth, cK: 1.12, toward: cold, dh: 18 }),
     core: shift(base, { dL: -0.06 * depth, cK: 1.45, toward: RED, dh: 16 }), // warm terminator band (subsurface)
     deep: shift(base, { dL: -(low ? 0.12 : 0.26) * depth, cK: 1.05, toward: cold, dh: 26 }),
-    line: shift(base, { L: Math.min(0.30, L * 0.42 + 0.04), cK: C > 0.04 ? 1.1 : 1, toward: cold, dh: 20 }),
+    line: shift(base, { L: Math.min(0.24, L * 0.3 + 0.03), cK: C > 0.04 ? 0.9 : 1, toward: cold, dh: 28 }),
     rim: shift(base, { dL: 0.22, cK: 0.55, toward: cold, dh: 30 }),
   };
 }
@@ -90,4 +90,9 @@ function multiplyTint(key = 'torch') {
   return { torch: '#a796c8', moon: '#7d8fc4', sun: '#b3a2cf', fire: '#a07ab0', neutral: '#b8b0c8' }[key] || key;
 }
 
-module.exports = { hexToRgb, rgbToHex, hexToOklch, oklchToHex, shift, mixHex, ramp, lightness, luma, multiplyTint, turnHue, hueDelta };
+// Colour as if a multiply layer of `tint` at opacity `a` were applied over `base`.
+function multiply(base, tint, a = 1) {
+  const b = hexToRgb(base), t = hexToRgb(tint);
+  return rgbToHex(b.map((v, i) => v * (1 - a) + v * t[i] * a));
+}
+module.exports = { multiply, hexToRgb, rgbToHex, hexToOklch, oklchToHex, shift, mixHex, ramp, lightness, luma, multiplyTint, turnHue, hueDelta };

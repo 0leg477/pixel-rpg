@@ -152,12 +152,14 @@ class Raster {
 
   // Part depth query at an arbitrary point (hard max over its prims). Returns {z, f, n} or null.
   partAt(pi, x, y) {
-    const part = this.parts[pi]; let best = null;
+    const part = this.parts[pi]; let best = null, pm = NEG, ps = 0;
     for (const pp of part.pp) {
       if (x < pp.bb[0] - 1 || x > pp.bb[2] + 1 || y < pp.bb[1] - 1 || y > pp.bb[3] + 1) continue;
       const h = this.hit(pp, part, x, y);
       if (h.z > NEG && h.f > 0 && (!best || h.z > best.z)) best = h;
+      if (part.kv && h.z > NEG) { if (h.z > pm) { ps = (pm <= NEG ? 0 : ps * Math.exp((pm - h.z) / part.kv)) + 1; pm = h.z; } else ps += Math.exp((h.z - pm) / part.kv); }
     }
+    if (best && part.kv && pm > NEG) best = { ...best, z: pm + part.kv * Math.log(ps) };
     return best;
   }
 
@@ -169,7 +171,7 @@ class Raster {
       const k = (grp.k == null ? 6 : grp.k) * view.s; // blend radius in screen units
       const parts = grp.parts.map(part => {
         const pi = this.parts.length;
-        const P = { ...part, gi, pi, mid: this.matId(part.mat), midInner: this.matId(part.matInner || part.mat + ':inner'), midBack: null };
+        const P = { ...part, gi, pi, kv: part.k ? part.k * view.s : 0, mid: this.matId(part.mat), midInner: this.matId(part.matInner || part.mat + ':inner'), midBack: null };
         if (part.keep) {
           // keep() works in the part-local frame; build view->local mapping
           const fr = part.frame || G.T();
@@ -207,12 +209,18 @@ class Raster {
             const x = this.px(i);
             // hard max over the part's prims
             let bz = NEG, bf = -50, bn = null, bside = 0, bpp = null;
+            let pm = NEG, ps = 0, px = 0, py = 0, pz = 0;
             for (const pp of P.pp) {
               if (x < pp.bb[0] - 2 * S || x > pp.bb[2] + 2 * S || y < pp.bb[1] - 2 * S || y > pp.bb[3] + 2 * S) continue;
               const h = this.hit(pp, P, x, y);
               if (h.f > bf) bf = h.f;
               if (h.z > bz) { bz = h.z; bn = h.n; bside = h.side; bpp = pp; }
+              if (P.kv && h.z > NEG) { // smooth union inside the part
+                if (h.z > pm) { const r = pm <= NEG ? 0 : Math.exp((pm - h.z) / P.kv); ps = ps * r + 1; px = px * r + h.n[0]; py = py * r + h.n[1]; pz = pz * r + h.n[2]; pm = h.z; }
+                else { const w = Math.exp((h.z - pm) / P.kv); ps += w; px += w * h.n[0]; py += w * h.n[1]; pz += w * h.n[2]; }
+              }
             }
+            if (P.kv && pm > NEG) { bz = pm + P.kv * Math.log(ps); const l = Math.hypot(px, py, pz) || 1; bn = [px / l, py / l, pz / l]; }
             const gi2 = (j - j0) * GW + (i - i0);
             if (bf > fG[gi2]) fG[gi2] = bf;
             if (bz <= NEG) continue;
@@ -298,6 +306,19 @@ class Raster {
     }
     return out;
   }
+  // Distance (svg units) from each covered pixel to the silhouette (two-pass chamfer).
+  silhouetteDistance() {
+    if (this._sd) return this._sd;
+    const W = this.W, H = this.H, N = W * H, INF = 1e9, d = new Float32Array(N);
+    for (let id = 0; id < N; id++) d[id] = this.cov[id] > 0 ? INF : 0;
+    const a = 1, b = Math.SQRT2;
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const id = j * W + i; if (!d[id]) continue; let v = d[id];
+      if (i > 0) v = Math.min(v, d[id - 1] + a); if (j > 0) { v = Math.min(v, d[id - W] + a); if (i > 0) v = Math.min(v, d[id - W - 1] + b); if (i < W - 1) v = Math.min(v, d[id - W + 1] + b); } d[id] = v; }
+    for (let j = H - 1; j >= 0; j--) for (let i = W - 1; i >= 0; i--) { const id = j * W + i; if (!d[id]) continue; let v = d[id];
+      if (i < W - 1) v = Math.min(v, d[id + 1] + a); if (j < H - 1) { v = Math.min(v, d[id + W] + a); if (i < W - 1) v = Math.min(v, d[id + W + 1] + b); if (i > 0) v = Math.min(v, d[id + W - 1] + b); } d[id] = v; }
+    for (let id = 0; id < N; id++) d[id] = d[id] >= INF ? 0 : (d[id] - 0.5) * this.step;
+    return (this._sd = d);
+  }
   normal(id) { return [this.nx[id], this.ny[id], this.nz[id]]; }
   // bilinear sample of a buffer at svg coords
   sample(buf, x, y, dflt = NEG) {
@@ -330,28 +351,90 @@ class Raster {
   project(p) { return toView(this.view, p); }
   visible(x, y, z, eps = 1.5) { const zb = this.depthAt(x, y); return zb <= NEG || z >= zb - eps * this.view.s; }
 
-  // Screen-space cast shadows: march toward the light through the depth buffer.
-  castShadow(L, { stepLen = 1.5, maxLen = 140, bias = 2.0, start = 4, groupsFrom = null } = {}) {
+  // Shadow map: render the model again from the light (orthographic) and compare depths.
+  // Returns a continuous field (occluder height above the point, minus bias) per screen pixel.
+  shadowMap(Lview, { bias = 1.5, smooth = 1 } = {}) {
+    const view = this.view, s = view.s;
+    const Lw = G.norm(G.mvec(G.transpose(view.R), Lview)); // light direction in model space
+    const Rl = G.rotBetween(Lw, [0, 0, 1]);
+    // bounds of the model in light space
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const grp of this.model.groups) for (const part of grp.parts) for (const pr of part.prims) {
+      const c = pr.type === 'ell' ? pr.c : pr.o;
+      const q = G.mvec(Rl, c); const ext = pr.type === 'ell' ? Math.max(...[0, 1, 2].map(i => Math.hypot(pr.A[i][0], pr.A[i][1], pr.A[i][2]))) : G.len(pr.u) + G.len(pr.v);
+      x0 = Math.min(x0, q[0] - ext); y0 = Math.min(y0, q[1] - ext); x1 = Math.max(x1, q[0] + ext); y1 = Math.max(y1, q[1] + ext);
+    }
+    const pad = 4 / s;
+    const lv = { R: Rl, s, ox: -(x0 - pad) * s, oy: -(y0 - pad) * s };
+    const LR = new Raster({ x0: 0, y0: 0, w: (x1 - x0 + 2 * pad) * s, h: (y1 - y0 + 2 * pad) * s, step: this.step }).render(this.model, lv);
+    this.lightRaster = LR;
     const N = this.W * this.H, out = new Float32Array(N).fill(-1);
-    const Ld = G.norm(L);
-    const st = stepLen * this.view.s / this.view.s; // in svg units
-    for (let j = 0; j < this.H; j++) for (let i = 0; i < this.W; i++) {
-      const id = j * this.W + i;
+    const Rt = G.transpose(view.R);
+    const LW = LR.W, LH = LR.H;
+    for (let id = 0; id < N; id++) {
       if (this.g1[id] < 0) continue;
-      const x = this.px(i), y = this.py(j), z = this.z1[id];
+      const i = id % this.W, j = (id / this.W) | 0;
+      const pm = G.mvec(Rt, [(this.px(i) - view.ox) / s, (this.py(j) - view.oy) / s, this.z1[id] / s]);
+      const q = G.mvec(Rl, pm);
+      const qx = q[0] * s + lv.ox, qy = q[1] * s + lv.oy, qz = q[2] * s;
+      const gx = LR.gx(qx), gy = LR.gy(qy), a = Math.floor(gx), b = Math.floor(gy);
+      if (a < 0 || b < 0 || a >= LW - 1 || b >= LH - 1) continue;
+      const fx = gx - a, fy = gy - b, own = this.g1[id];
+      let zs = 0, w = 0;
+      const acc = (k, ww) => { if (LR.g1[k] >= 0 && LR.g1[k] !== own) { zs += LR.z1[k] * ww; w += ww; } };
+      acc(b * LW + a, (1 - fx) * (1 - fy)); acc(b * LW + a + 1, fx * (1 - fy)); acc((b + 1) * LW + a, (1 - fx) * fy); acc((b + 1) * LW + a + 1, fx * fy);
+      if (w < 0.3) continue;
+      out[id] = Math.min(8, zs / w - qz - bias) * Math.min(1, w * 1.6);
+    }
+    for (let it = 0; it < smooth; it++) {
+      const src = out.slice(), W = this.W;
+      for (let j = 1; j < this.H - 1; j++) for (let i = 1; i < W - 1; i++) {
+        const id = j * W + i; if (this.g1[id] < 0) continue;
+        let sm = 0, n = 0;
+        for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const k = id + dj * W + di; if (this.g1[k] === this.g1[id]) { sm += src[k]; n++; } }
+        out[id] = sm / n;
+      }
+    }
+    return out;
+  }
+
+  // Screen-space cast shadows: march toward the light through the depth buffer of *other* groups.
+  // The value is the (smoothed) height of the occluder above the ray, so the edge vectorises cleanly.
+  castShadow(L, { stepLen = 1.25, maxLen = 160, bias = 2.0, start = 3, smooth = 2 } = {}) {
+    const N = this.W * this.H, out = new Float32Array(N).fill(-1);
+    const Ld = G.norm(L), W = this.W, H = this.H;
+    const zAt = (qx, qy, own) => { // bilinear over other-group pixels
+      const gx = this.gx(qx), gy = this.gy(qy), i = Math.floor(gx), j = Math.floor(gy);
+      if (i < 0 || j < 0 || i >= W - 1 || j >= H - 1) return null;
+      const fx = gx - i, fy = gy - j; let s = 0, w = 0;
+      const acc = (id, ww) => { if (this.g1[id] >= 0 && this.g1[id] !== own) { s += this.z1[id] * ww; w += ww; } };
+      acc(j * W + i, (1 - fx) * (1 - fy)); acc(j * W + i + 1, fx * (1 - fy)); acc((j + 1) * W + i, (1 - fx) * fy); acc((j + 1) * W + i + 1, fx * fy);
+      return w > 0.35 ? s / w : null;
+    };
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+      const id = j * W + i;
+      if (this.g1[id] < 0) continue;
+      const own = this.g1[id], x = this.px(i), y = this.py(j), z = this.z1[id];
       let best = -bias;
-      for (let t = start; t < maxLen; t += st) {
+      for (let t = start; t < maxLen; t += stepLen) {
         const qx = x + Ld[0] * t, qy = y + Ld[1] * t, qz = z + Ld[2] * t;
-        const qi = Math.round(this.gx(qx)), qj = Math.round(this.gy(qy));
-        if (qi < 0 || qj < 0 || qi >= this.W || qj >= this.H) break;
-        const qid = qj * this.W + qi;
-        if (this.g1[qid] < 0) continue;
-        if (groupsFrom && !groupsFrom.includes(this.g1[qid])) continue;
-        const occ = this.z1[qid] - qz - bias;
+        if (qx < this.x0 || qy < this.y0 || qx > this.px(W - 1) || qy > this.py(H - 1)) break;
+        const zb = zAt(qx, qy, own);
+        if (zb == null) continue;
+        const occ = zb - qz - bias;
         if (occ > best) best = occ;
-        if (best > 6) break;
+        if (best > 8) break;
       }
       out[id] = best;
+    }
+    for (let it = 0; it < smooth; it++) {
+      const src = out.slice();
+      for (let j = 1; j < H - 1; j++) for (let i = 1; i < W - 1; i++) {
+        const id = j * W + i; if (this.g1[id] < 0) continue;
+        let s = 0, n = 0;
+        for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const q = id + dj * W + di; if (this.g1[q] === this.g1[id]) { s += src[q]; n++; } }
+        out[id] = s / n;
+      }
     }
     return out;
   }

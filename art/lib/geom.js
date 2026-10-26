@@ -164,7 +164,8 @@ function lineNormals(pts) {
 // ---------- splines ----------
 // Centripetal Catmull-Rom through points -> dense polyline.
 function catmull(pts, { closed = false, seg = 10, alpha = 0.5 } = {}) {
-  const P = pts.map(p => p.slice(0, 2));
+  const P = pts.map(p => p.slice());
+  const d2 = (a, b) => Math.sqrt(a.reduce((s, v, i) => s + (v - b[i]) ** 2, 0));
   if (P.length < 3) return P;
   const n = P.length, out = [];
   const get = i => closed ? P[(i + n) % n] : P[Math.max(0, Math.min(n - 1, i))];
