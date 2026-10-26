@@ -39,7 +39,7 @@ function render(doc, ch, { pose = {}, expr = {}, view, box, step = 1, light = {}
   const ctx = { ...b, Rs, view: v, light };
   const markings = [...(ch.markings ? ch.markings(ctx) : []), ...b.hair.markings];
   const tufts = ch.tufts ? ch.tufts(ctx) : [];
-  const res = T.figure(Rs, doc, { materials: ch.materials, markings, tufts, light, lineScale, add: false, name, shadowDist: { head: b.head.R * 0.26, 'head.earL': b.head.R * 0.3, 'head.earR': b.head.R * 0.3, ...(ch.shadowDist || {}) },
+  const res = T.figure(Rs, doc, { materials: ch.materials, markings, tufts, light, lineScale, add: false, name, style: ch.style, shadowDist: { head: b.head.R * 0.26, 'head.earL': b.head.R * 0.3, 'head.earR': b.head.R * 0.3, ...(ch.shadowDist || {}) },
     postShade: () => ch.postShade ? ch.postShade(doc, ctx) : '' });
   const over = [];
   over.push(Head.features(doc, Rs, b.head, { expr, eye: ch.eye, light: light.key, lineColor: ch.lineColor, noseColor: ch.noseColor, mouthLine: ch.mouthLine, whiskers: ch.whiskers, whiskerColor: ch.whiskerColor }));

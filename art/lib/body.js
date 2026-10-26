@@ -247,7 +247,7 @@ function build(specIn = {}, pose = {}, mats = {}) {
   }
 
   // --- legs
-  if (pose.legs !== false) for (const side of ['L', 'R']) {
+  if (pose.legs !== false && sp.legs !== false) for (const side of ['L', 'R']) {
     const s = side === 'L' ? -1 : 1;
     const lp = pose['leg' + side] || {};
     const lg = sp.leg;

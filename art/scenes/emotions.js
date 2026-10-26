@@ -7,7 +7,7 @@ const G = require('../lib/geom');
 const { Doc } = require('../lib/svg');
 const F = require('../lib/figure');
 
-const NAMES = { neutral: 'спокойствие', smirk: 'ухмылка', lazy: 'лень', wink: 'подмигивание', laugh: 'смех', annoyed: 'раздражение', surprised: 'удивление', sad: 'грусть', flirty: 'кокетство', angry: 'гнев', proud: 'гордость', joy: 'радость', shy: 'смущение', hypno: 'гипноз', sly: 'хитрость', playful: 'игривость', calm: 'покой', mystery: 'загадка', excited: 'азарт', tender: 'нежность', sleepy: 'сонливость', fierce: 'ярость' };
+const NAMES = { neutral: 'спокойствие', smirk: 'ухмылка', lazy: 'лень', wink: 'подмигивание', laugh: 'смех', annoyed: 'раздражение', surprised: 'удивление', sad: 'грусть', flirty: 'кокетство', angry: 'гнев', proud: 'гордость', joy: 'радость', shy: 'смущение', hypno: 'гипноз', sly: 'хитрость', playful: 'игривость', calm: 'покой', mystery: 'загадка', excited: 'азарт', tender: 'нежность', sleepy: 'сонливость', fierce: 'ярость', fury: 'ярость', chatty: 'болтовня', pout: 'обида', flustered: 'смущение', dreamy: 'мечтательность', kind: 'доброта', song: 'песня', stern: 'строгость' };
 
 function sheet(ch, list, { cols = 4, cw = 420, chh = 470, title = null, bgCell = null } = {}) {
   const rows = Math.ceil(list.length / cols), TOP = 96;
@@ -22,10 +22,12 @@ function sheet(ch, list, { cols = 4, cw = 420, chh = 470, title = null, bgCell =
     const base = ch.poses.bust || ch.poses.halfbody;
     const pose = { ...base, head: { ...(base.head || {}), ...(ex.head || {}) }, hide: ['legL', 'legR', ...(base.hide || [])] };
     const s = ch.bustScale || 10.5;
-    const v = { yaw: ex.viewYaw != null ? ex.viewYaw : -0.32, pitch: 0, s, ox: x0 + cw / 2, oy: y0 + chh * 0.5 };
+    const v = { yaw: ex.viewYaw ?? ch.emoYaw ?? -0.32, pitch: 0, s, ox: x0 + cw / 2, oy: y0 + chh * 0.5 };
     // centre the head: build once to find it, then shift the view
     const probe = F.build(ch, { pose, expr: ex });
-    const hc = require('../lib/raster').toView(require('../lib/raster').viewOf(v), probe.head.anchors.cranium);
+    // frame on the face, not the skull centre (long snouts otherwise leave the cell)
+    const focus = ch.emoFocus ? probe.head.toWorld(ch.emoFocus) : probe.head.anchors.cranium;
+    const hc = require('../lib/raster').toView(require('../lib/raster').viewOf(v), focus);
     v.oy += (y0 + chh * (ch.emoCy || 0.4)) - hc[1]; v.ox += (x0 + cw / 2) - hc[0];
     F.render(doc, ch, { pose, expr: ex, view: v, box: { x0: x0 + 6, y0: y0 + 6, w: cw - 12, h: chh - 12 }, step: 1, light: ch.light || {}, lineScale: 0.95 });
     const lbl = NAMES[name] || name;

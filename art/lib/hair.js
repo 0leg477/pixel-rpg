@@ -82,27 +82,75 @@ function build(style, head, opt = {}) {
     }
     if (o.ring) markings.push(ring({ c: cc, lat: -0.62, width: 0.04, jag: 0.05, n: 30 }));
   } else if (style === 'ponytail') {
-    const w = { bang: -0.62, x: 0.82, z: 0.32, taper: 0.4 };
+    // the face window must clear the outer eye corners, or the shell edge slices through the eyes
+    const w = { bang: o.bang ?? -0.62, x: o.winX ?? 0.97, z: 0.2, taper: o.winTaper ?? 0.12 };
     addShell('hair.cap', [B.ell([0, -0.1, -0.04], [1.08, 1.05, 1.08])], p => Math.min(0.2 - p[1] + p[2] * 0.4, -windowField(p, w)));
     strands.push({ kind: 'shell', c: [0, -0.1, -0.04], r: [1.1, 1.07, 1.1], cut: p => 0.2 - p[1] + p[2] * 0.4, win: p => -windowField(p, w), count: 26, from: -1.35 });
-    const tail = addLock('hair.tail', [[0, -0.92, -0.55], [0, -1.35, -1.0], [0, -1.15, -1.55], [0, -0.2, -1.85], [0.1, 0.9, -1.75], [0.25, 1.85, -1.45]],
+    // swing: sideways throw of the tail (in head radii) so it reads in the silhouette from the front and 3/4
+    const sw = o.swing || 0;
+    const tail = addLock('hair.tail', [[0, -0.92, -0.55], [0.08 * sw, -1.38, -1.0], [0.35 * sw, -1.3, -1.5], [0.8 * sw, -0.45, -1.7], [1.15 * sw, 0.7, -1.5], [1.35 * sw, 1.85, -1.15]],
       t => 0.24 + 0.36 * Math.sin(Math.min(1, t * 1.6) * Math.PI * 0.85) * (1 - t * 0.55) - 0.08 * t, { strands: 4 });
     extras.push({ kind: 'tie', at: tail[3], dir: G.norm(G.sub(tail[4], tail[2])), r: 0.3 });
-    // side-swept bangs
-    addLock('hair.bangL', [[-0.1, -1.0, 0.75], [-0.45, -0.72, 0.95], [-0.72, -0.35, 0.88], [-0.82, 0.05, 0.62]], t => 0.2 - 0.15 * t, { strands: 2 });
-    addLock('hair.bangR', [[0.15, -1.02, 0.7], [0.5, -0.8, 0.9], [0.82, -0.42, 0.75], [0.95, 0.1, 0.42]], t => 0.17 - 0.13 * t, { strands: 2 });
+    // two thinner locks peel off the tail so its end splits into tips instead of a single sausage
+    if (sw) for (const [dx, dz, len, r0] of [[0.32, 0.18, 0.8, 0.2], [-0.12, -0.3, 0.92, 0.17]]) {
+      addLock('hair.tail' + (dx > 0 ? 'B' : 'C'), [[0.35 * sw, -1.3, -1.5], [0.8 * sw + dx * 0.5, -0.45, -1.7 + dz * 0.5], [1.15 * sw + dx, 0.6, -1.5 + dz], [(1.35 * sw + dx * 1.6) * len, 1.85 * len, -1.15 + dz * 1.4]],
+        t => r0 * (1 - 0.75 * t) + 0.04, { strands: 2 });
+    }
+    if (o.bangs === 'part') {
+      // centre-parted fringe that stays above the brows, plus sidelocks in front of the ears (outside the eyes)
+      for (const s of [-1, 1]) {
+        const sd = s < 0 ? 'L' : 'R';
+        addLock('hair.bang' + sd, [[s * 0.06, -1.0, 0.68], [s * 0.42, -0.86, 0.86], [s * 0.74, -0.62, 0.78], [s * 0.96, -0.4, 0.5]], t => 0.17 - 0.1 * t, { strands: 2 });
+        addLock('hair.side' + sd, [[s * 0.93, -0.5, 0.38], [s * 1.0, -0.1, 0.42], [s * 0.98, 0.35, 0.46], [s * 0.9, 0.75, 0.42]], t => 0.15 - 0.09 * t, { strands: 2 });
+      }
+    } else if (o.bangs !== false) {
+      // side-swept bangs
+      addLock('hair.bangL', [[-0.1, -1.0, 0.75], [-0.45, -0.72, 0.95], [-0.72, -0.35, 0.88], [-0.82, 0.05, 0.62]], t => 0.2 - 0.15 * t, { strands: 2 });
+      addLock('hair.bangR', [[0.15, -1.02, 0.7], [0.5, -0.8, 0.9], [0.82, -0.42, 0.75], [0.95, 0.1, 0.42]], t => 0.17 - 0.13 * t, { strands: 2 });
+    }
     markings.push(ring({ c: [0, -0.1, -0.04], lat: -0.7, width: 0.06, jag: 0.05, n: 22 }));
   } else if (style === 'mane') {
-    const w = { bang: -0.42, x: 0.86, z: 0.15, taper: 0.1 };
-    addShell('hair.mane', [B.ell([0, 0.05, -0.28], [1.55, 1.5, 1.42]), B.ell([0, 0.9, -0.5], [1.5, 1.0, 1.1])], p => Math.min(1.85 - p[1], -windowField(p, w)));
-    for (const s of [-1, 1]) addLock('hair.tress' + (s < 0 ? 'L' : 'R'), [[s * 0.92, -0.2, 0.25], [s * 1.0, 0.6, 0.35], [s * 0.95, 1.4, 0.45], [s * 0.85, 2.25, 0.55]], t => 0.34 - 0.08 * t, { strands: 3 });
-    strands.push({ kind: 'shell', c: [0, 0.05, -0.28], r: [1.57, 1.52, 1.44], cut: p => 1.85 - p[1], win: p => -windowField(p, w), count: 40 });
+    // lush wild mane: open face (ears free), a big mass behind the head down to the shoulders,
+    // pointed bang clumps and wavy face-framing locks whose ends flick outward
+    const cc = [0, -0.1, -0.08], rr = [1.1, 1.07, 1.1];
+    const vol = o.volume || 1;
+    const w = { bang: o.bang ?? -0.5, x: o.winX ?? 0.98, z: 0.0, taper: 0.1 };
+    const capCut = p => 0.45 - p[1] + 0.35 * p[2];
+    addShell('hair.cap', [B.ell(cc, rr)], p => Math.min(capCut(p), -windowField(p, w)));
+    strands.push({ kind: 'shell', c: cc, r: rr.map(v => v * 1.02), cut: capCut, win: p => -windowField(p, w), count: 30 });
+    const latOf = y => Math.asin(Math.max(-1, Math.min(1, (y - cc[1]) / rr[1])));
+    const nb = o.bangClumps || 5;
+    for (let i = 0; i < nb; i++) {
+      const f = i / (nb - 1) * 2 - 1, lon1 = f * 0.78 + 0.1;
+      const cl = clump(cc, rr, { lat0: -1.25, lon0: lon1 * 0.4 - 0.15, lat1: latOf(w.bang + 0.06 + 0.09 * Math.cos(i * 2.3)), lon1, w: 0.5, t: 0.07, lift: 0.0, tip: 0.45, bulge: 0.045, curl: 0.0 });
+      parts.push({ name: 'hair.bang' + i, mat, frame, prims: cl.prims.map(X), k: 0.04 * R });
+    }
+    for (const s of [-1, 1]) for (let k = 0; k < 2; k++) {
+      const b0 = [s * (0.92 + 0.06 * k), -0.38 + k * 0.2, 0.2 - k * 0.34];
+      const ctrl = [b0, G.add(b0, [s * 0.2, 0.5, 0.05]), G.add(b0, [s * (0.36 + 0.12 * k), 1.0, -0.04]), G.add(b0, [s * (0.68 + 0.2 * k) * vol, 1.45 + 0.2 * k, -0.2])];
+      addLock('hair.side' + (s < 0 ? 'L' : 'R') + k, ctrl, t => (0.27 - 0.04 * k) * (1 - 0.82 * t) + 0.03, { strands: 2 });
+    }
+    // the mass: tapered locks radiating from behind the head like a lion's mane, merged by the group blend
+    // into one volume whose edge breaks into flicked tips
+    const nl = o.locks || 13, centre = [0, 0.15, -0.6];
+    for (let i = 0; i < nl; i++) {
+      const jit = G.hash1(i * 3.7) - 0.5, th = -2.6 + 5.2 * i / (nl - 1) + jit * 0.18;
+      const d = [Math.sin(th), -Math.cos(th), 0];
+      const len = (2.15 + 0.6 * jit + 0.55 * Math.max(0, -Math.cos(th))) * vol;
+      const curl = (i % 2 ? 1 : -1) * 0.25;
+      // gravity pulls the outer half down; alternate locks curl the tip to one side (S-curve, not a star)
+      const p0 = G.add(centre, G.mul(d, 0.35)), p1 = G.add(centre, G.add(G.mul(d, len * 0.5), [-d[1] * curl * 0.4, 0.22, -0.12]));
+      const p2 = G.add(centre, G.add(G.mul(d, len * 0.82), [d[1] * curl * 0.3, 0.42 + 0.1 * jit, -0.16]));
+      const p3 = G.add(centre, G.add(G.mul(d, len), [d[1] * curl, 0.72 + 0.12 * jit, -0.2 - 0.1 * jit]));
+      addLock('hair.mane' + i, [p0, p1, p2, p3], t => 0.7 * Math.pow(1 - t, 0.75) + 0.035, { strands: 2 });
+    }
   } else if (style === 'straight') {
-    const w = { bang: o.bang ?? -0.62, x: 0.76, z: 0.05, taper: 0.06 };
+    const w = { bang: o.bang ?? -0.62, x: o.winX ?? 0.76, z: 0.05, taper: 0.06 };
     addShell('hair.cap', [B.ell([0, -0.08, -0.05], [1.12, 1.08, 1.12])], p => Math.min(0.75 - p[1], -windowField(p, w)));
     addShell('hair.back', [B.ellBetween([0, -0.2, -0.75], [0, 4.6, -1.15], 1.1, 0.42, [1, 0, 0])], null, { inner: false, k: 0.1 * R });
     for (const s of [-1, 1]) {
-      const pts = addLock('hair.front' + (s < 0 ? 'L' : 'R'), [[s * 0.85, -0.3, 0.2], [s * 0.98, 0.6, 0.25], [s * 1.02, 1.6, 0.42], [s * 0.95, 2.9, 0.55]], t => 0.24 - 0.04 * t, { strands: 3 });
+      const fx = Math.max(0.85, w.x + 0.03), fr = o.frontR || 0.24;
+      const pts = addLock('hair.front' + (s < 0 ? 'L' : 'R'), [[s * fx, -0.3, 0.05], [s * (fx + 0.06), 0.6, 0.12], [s * (fx + 0.08), 1.6, 0.32], [s * (fx + 0.02), 2.9, 0.48]], t => fr - 0.04 * t, { strands: 3 });
       if (o.rings) for (const t of [0.42, 0.62, 0.82]) { const i = Math.round(t * (pts.length - 1)); extras.push({ kind: 'tie', at: pts[i], dir: G.norm(G.sub(pts[Math.min(pts.length - 1, i + 1)], pts[i - 1])), r: 0.24 }); }
     }
     strands.push({ kind: 'shell', c: [0, -0.08, -0.05], r: [1.14, 1.1, 1.14], cut: p => 0.75 - p[1], win: p => -windowField(p, w), count: 30 });
@@ -110,9 +158,19 @@ function build(style, head, opt = {}) {
     markings.push(ring({ c: [0, -0.08, -0.05], lat: -0.66, width: 0.06, jag: 0.06, n: 24 }));
   } else if (style === 'wavy') {
     const long = o.long ?? 1;
-    const w = { bang: o.bang ?? -0.55, x: 0.8, z: 0.1, taper: 0.1 };
-    addShell('hair.cap', [B.ell([0, -0.1, -0.06], [1.13, 1.08, 1.13])], p => Math.min(0.5 - p[1], -windowField(p, w)));
+    const w = { bang: o.bang ?? -0.55, x: o.winX ?? 0.8, z: 0.1, taper: 0.1 };
+    const cc = [0, -0.1, -0.06], rr = [1.13, 1.08, 1.13];
+    addShell('hair.cap', [B.ell(cc, rr)], p => Math.min(0.5 - p[1], -windowField(p, w)));
     strands.push({ kind: 'shell', c: [0, -0.1, -0.06], r: [1.15, 1.1, 1.15], cut: p => 0.5 - p[1], win: p => -windowField(p, w), count: 28 });
+    if (o.bangClumps) {
+      // swept fringe of pointed clumps that breaks the straight window edge
+      const latOf = y => Math.asin(Math.max(-1, Math.min(1, (y - cc[1]) / rr[1])));
+      for (let i = 0; i < o.bangClumps; i++) {
+        const f = i / (o.bangClumps - 1) * 2 - 1, lon1 = f * 0.8 + 0.18;
+        const cl = clump(cc, rr, { lat0: -1.25, lon0: lon1 * 0.35 - 0.25, lat1: latOf(w.bang + 0.1 + 0.08 * Math.cos(i * 2.1)), lon1, w: 0.48, t: 0.07, lift: 0.0, tip: 0.4, bulge: 0.05, curl: 0.02 });
+        parts.push({ name: 'hair.bang' + i, mat, frame, prims: cl.prims.map(X), k: 0.04 * R });
+      }
+    }
     const locks = o.locks || 9;
     for (let i = 0; i < locks; i++) {
       const a = -1.15 + 2.3 * i / (locks - 1); // angle around the back of the head
@@ -122,12 +180,15 @@ function build(style, head, opt = {}) {
       const out = [side * 1.25, 0, back * 0.6 - (Math.abs(side) > 0.7 ? -0.25 : 0)];
       const ctrl = [];
       for (let k = 0; k <= 5; k++) {
-        const t = k / 5, wave = Math.sin(t * Math.PI * 2.2 + i) * 0.22 * t;
+        const t = k / 5, wave = Math.sin(t * Math.PI * 2.2 + i) * (o.wave ?? 0.22) * t;
         ctrl.push([base[0] + out[0] * 0.35 * t + wave * Math.cos(a), base[1] + len * t, base[2] + out[2] * 0.3 * t + wave * Math.sin(a) * 0.4 + (Math.abs(side) > 0.8 ? 0.35 * t : 0)]);
       }
-      addLock('hair.lock' + i, ctrl, t => (0.36 - 0.22 * t) * (o.volume || 1), { strands: 2 });
+      addLock('hair.lock' + i, ctrl, t => (0.36 - 0.27 * t) * (o.volume || 1) + 0.02, { strands: 2 });
     }
-    if (o.front) for (const s of [-1, 1]) addLock('hair.front' + (s < 0 ? 'L' : 'R'), [[s * 0.8, -0.35, 0.45], [s * 1.02, 0.4, 0.4], [s * 0.95, 1.2, 0.55], [s * 1.08, 2.0 * long, 0.62]], t => 0.26 - 0.12 * t, { strands: 2 });
+    if (o.front) for (const s of [-1, 1]) {
+      const fx = Math.max(0.8, w.x + 0.02), wv = o.wave ?? 0.22;
+      addLock('hair.front' + (s < 0 ? 'L' : 'R'), [[s * fx, -0.35, 0.4], [s * (fx + 0.2 + wv * 0.4), 0.4, 0.38], [s * (fx + 0.1 - wv * 0.3), 1.2, 0.52], [s * (fx + 0.3 + wv * 0.4), 2.0 * long, 0.6]], t => 0.24 - 0.16 * t, { strands: 2 });
+    }
     markings.push(ring({ c: [0, -0.1, -0.06], lat: -0.68, width: 0.06, jag: 0.05, n: 20 }));
   } else if (style === 'hime') {
     const w = { bang: o.bang ?? -0.36, x: 0.72, z: 0.0, taper: 0.0 };
@@ -139,7 +200,7 @@ function build(style, head, opt = {}) {
     strands.push({ kind: 'sheet', a: [0, -0.1, -0.78], b: [0, 4.4, -1.2], w: 1.12, d: 0.4, count: 12 });
     markings.push(ring({ c: [0, -0.08, -0.05], lat: -0.62, width: 0.07, jag: 0.06, n: 28 }));
   }
-  const main = parts.filter(p => !/\.(bang|side)\d|\.(bang|side)[LR]\d/.test(p.name));
+  const main = parts.filter(p => !/\.(bang|side)(\d|[LR])/.test(p.name));
   groups.push({ name: opt.group || 'hair', k: 0.06 * R, parts: main });
   parts.filter(p => !main.includes(p)).forEach(p => groups.push({ name: (opt.group || 'hair') + '.' + p.name, k: 0.02 * R, line: 'always', lineK: 0.6, parts: [p] }));
 
@@ -219,7 +280,9 @@ function overlay(doc, Rs, head, hair, { lineColor = '#0d0f1e', hiColor = '#5f7fc
     const gr = Cc.ramp(gold);
     const grad = doc.linear([[0, gr.deep], [0.3, gold], [0.48, gr.hi], [0.55, '#fff6d0'], [0.7, gold], [1, gr.shadow]], { x1: 0, y1: 0, x2: 0, y2: 1 });
     out.push(`<g transform="translate(${G.fmt(c[0])} ${G.fmt(c[1])}) rotate(${G.fmt(ang + 90)})">` +
-      path(`M${-rr} ${-wdt / 2}L${rr} ${-wdt / 2}A${rr} ${rr * tilt} 0 0 1 ${rr} ${wdt / 2}L${-rr} ${wdt / 2}A${rr} ${rr * tilt} 0 0 1 ${-rr} ${-wdt / 2}Z`, { fill: grad, stroke: gr.line, 'stroke-width': 0.08 * R * sc }) + '</g>');
+      // a band around a cylinder seen from the side: straight sides, top and bottom edges are the
+      // near halves of ellipses (tilt = how much of the ring's plane we see)
+      path(`M${-rr} ${-wdt / 2}A${rr} ${rr * tilt} 0 0 0 ${rr} ${-wdt / 2}L${rr} ${wdt / 2}A${rr} ${rr * tilt} 0 0 1 ${-rr} ${wdt / 2}Z`, { fill: grad, stroke: gr.line, 'stroke-width': 0.04 * R * sc }) + '</g>');
   }
   return g({ class: 'hair-strands' }, out);
 }

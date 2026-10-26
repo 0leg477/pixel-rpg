@@ -17,20 +17,23 @@ const both = (fn) => [fn(-1), fn(1)];
 // prims: list of [name, prim] in unit space. ears: ear spec. eyes: placement. nose/mouth: shapes and anchors.
 const SPECIES = {
   cat: {
+    // anime-furry feline: V-shaped face with a pointed chin, short smooth snout (nose at its tip),
+    // large frontal almond eyes; no puffy ':3' whisker pads
     prims: () => [
-      ['cranium', B.ell([0, 0, 0], [1, 0.95, 0.94])],
-      ...both(s => ['cheek', B.ell([0.42 * s, 0.32, 0.3], [0.5, 0.44, 0.5])]),
-      ['jaw', B.ell([0, 0.52, 0.42], [0.36, 0.3, 0.38])],
-      ...both(s => ['muzzle', B.ell([0.16 * s, 0.42, 0.8], [0.22, 0.17, 0.19])]),
-      ['muzzle', B.ell([0, 0.6, 0.72], [0.14, 0.11, 0.13])],
-      ['muzzle', B.ellBetween([0, 0.0, 0.83], [0, 0.32, 0.97], 0.12, 0.1)],
+      ['cranium', B.ell([0, -0.06, -0.06], [0.96, 0.9, 0.92])],
+      ...both(s => ['cheek', B.ell([0.37 * s, 0.26, 0.3], [0.45, 0.42, 0.46])]),
+      ['jaw', B.ellBetween([0, 0.34, 0.22], [0, 0.7, 0.52], 0.3, 0.25)],
+      ['muzzle', B.ellBetween([0, 0.16, 0.62], [0, 0.4, 1.06], 0.21, 0.17)],
+      ['muzzle', B.ellBetween([0, -0.06, 0.74], [0, 0.3, 1.02], 0.13, 0.11)],
+      ['muzzle', B.ell([0, 0.49, 0.86], [0.16, 0.1, 0.13])],
     ],
-    k: 0.07,
-    ear: { base: [0.6, -0.6, 0.02], w: 0.42, h: 0.82, out: 0.42, back: -0.12, poly: [[-1, 0], [-0.55, 0.45], [-0.05, 1], [0.35, 0.5], [1, 0.02], [0, -0.1]], cup: [0.6, 0.2] },
-    eyes: { theta: 0.47, phi: 0.07, w: 0.3, r: 0.97, tilt: 0.18, pupil: 'slit' },
-    nose: { at: [0, 0.24], shape: 'cat', w: 0.2, h: 0.13 },
-    mouth: { center: [0, 0.47], corner: [0.17, 0.455], depth: 0.055, kind: 'cat' },
-    whiskers: { from: [[0.22, 0.45], [0.22, 0.51]], len: 0.6, spread: 0.24 },
+    k: 0.085,
+    ear: { base: [0.56, -0.62, -0.04], w: 0.5, h: 1.0, out: 0.36, back: -0.12, poly: [[-1, 0], [-0.55, 0.45], [-0.05, 1], [0.35, 0.5], [1, 0.02], [0, -0.1]], cup: [0.6, 0.2] },
+    eyes: { theta: 0.4, phi: 0.02, w: 0.36, r: 0.97, tilt: 0.2, pupil: 'slit' },
+    nose: { at: [0, 0.31], shape: 'cat', w: 0.15, h: 0.1, face: 0.5 },
+    // a small smile line under the nose (no philtrum / ':3' loop — it read as a mustache at pin-up scale)
+    mouth: { center: [0, 0.5], corner: [0.13, 0.48], depth: 0.02, kind: 'canid' },
+    whiskers: { from: [[0.16, 0.42], [0.16, 0.47]], len: 0.5, spread: 0.2 },
     muzzleBox: [0, 0.48, 0.74, 0.42, 0.3, 0.38],
   },
   fennec: {
@@ -51,47 +54,47 @@ const SPECIES = {
   lion: {
     prims: () => [
       ['cranium', B.ell([0, 0, 0], [1, 0.95, 0.95])],
-      ...both(s => ['cheek', B.ell([0.44 * s, 0.36, 0.3], [0.56, 0.5, 0.55])]),
-      ['jaw', B.ell([0, 0.6, 0.45], [0.46, 0.34, 0.44])],
-      ['muzzle', B.ellBetween([0, -0.05, 0.78], [0, 0.36, 1.18], 0.24, 0.17)],
-      ...both(s => ['muzzle', B.ell([0.2 * s, 0.52, 0.94], [0.27, 0.22, 0.24])]),
-      ['muzzle', B.ell([0, 0.74, 0.84], [0.2, 0.15, 0.18])],
+      ...both(s => ['cheek', B.ell([0.4 * s, 0.33, 0.3], [0.5, 0.44, 0.5])]),
+      ['jaw', B.ell([0, 0.56, 0.42], [0.4, 0.3, 0.4])],
+      ['muzzle', B.ellBetween([0, 0.0, 0.8], [0, 0.34, 1.12], 0.2, 0.15)],
+      ...both(s => ['muzzle', B.ell([0.17 * s, 0.5, 0.92], [0.22, 0.18, 0.2])]),
+      ['muzzle', B.ell([0, 0.68, 0.82], [0.15, 0.12, 0.15])],
     ],
     k: 0.07,
     ear: { base: [0.7, -0.5, -0.12], w: 0.34, h: 0.44, out: 0.75, back: -0.2, poly: [[-1, 0], [-0.8, 0.6], [0, 1], [0.8, 0.6], [1, 0], [0, -0.1]], cup: [0.5, 0.3] },
     eyes: { theta: 0.45, phi: 0.06, w: 0.27, r: 0.97, tilt: 0.12, pupil: 'round', pupilR: 0.22 },
-    nose: { at: [0, 0.4], shape: 'lion', w: 0.34, h: 0.18, z: 1.1 },
-    mouth: { center: [0, 0.6], corner: [0.29, 0.57], depth: 0.07, kind: 'cat' },
-    whiskers: { from: [[0.28, 0.55], [0.28, 0.63]], len: 0.7, spread: 0.18 },
+    nose: { at: [0, 0.38], shape: 'lion', w: 0.3, h: 0.17, z: 1.1, face: 1.0 },
+    mouth: { center: [0, 0.57], corner: [0.25, 0.54], depth: 0.06, kind: 'cat' },
+    whiskers: { from: [[0.24, 0.52], [0.24, 0.59]], len: 0.65, spread: 0.18 },
   },
   cobra: {
     prims: () => [
-      ['cranium', B.ell([0, -0.02, 0.0], [0.9, 0.66, 1.0])],
-      ...both(s => ['cheek', B.ell([0.42 * s, 0.16, 0.28], [0.46, 0.38, 0.6])]),
-      ['muzzle', B.ellBetween([0, 0.06, 0.45], [0, 0.16, 1.32], 0.4, 0.27)],
-      ['jaw', B.ellBetween([0, 0.33, 0.1], [0, 0.35, 1.16], 0.36, 0.16)],
+      ['cranium', B.ell([0, -0.06, -0.05], [0.88, 0.76, 0.96])],
+      ...both(s => ['cheek', B.ell([0.36 * s, 0.14, 0.3], [0.42, 0.36, 0.52])]),
+      ['muzzle', B.ellBetween([0, 0.06, 0.4], [0, 0.18, 1.16], 0.33, 0.23)],
+      ['jaw', B.ellBetween([0, 0.3, 0.1], [0, 0.31, 0.98], 0.3, 0.14)],
     ],
     k: 0.09,
     ear: null,
     eyes: { theta: 0.5, phi: -0.05, w: 0.34, r: 0.95, tilt: 0.26, pupil: 'slit', pupilW: 0.09 },
-    nose: { at: [0, 0.1], shape: 'nostrils', w: 0.22, h: 0.06, z: 1.4 },
-    mouth: { center: [0, 0.3], corner: [0.42, 0.27], depth: 0.02, kind: 'reptile' },
+    nose: { at: [0, 0.1], shape: 'nostrils', w: 0.2, h: 0.05, z: 1.25 },
+    mouth: { center: [0, 0.29], corner: [0.36, 0.25], depth: 0.02, kind: 'reptile' },
   },
   croc: {
     prims: () => [
       ['cranium', B.ell([0, -0.05, -0.05], [0.95, 0.72, 0.95])],
       ...both(s => ['cheek', B.ell([0.48 * s, 0.24, 0.22], [0.5, 0.42, 0.55])]),
       ['muzzle', B.ellBetween([0, 0.04, 0.3], [0, 0.16, 1.35], 0.56, 0.28)],
-      ['muzzle', B.ellBetween([0, 0.14, 0.95], [0, 0.2, 2.1], 0.36, 0.19)],
-      ['jaw', B.ellBetween([0, 0.42, 0.2], [0, 0.42, 1.98], 0.42, 0.17)],
+      ['muzzle', B.ellBetween([0, 0.14, 0.95], [0, 0.2, 1.85], 0.36, 0.19)],
+      ['jaw', B.ellBetween([0, 0.42, 0.2], [0, 0.42, 1.75], 0.42, 0.17)],
       ...both(s => ['brow', B.ell([0.36 * s, -0.46, 0.42], [0.24, 0.17, 0.22])]),
-      ['muzzle', B.ell([0, 0.06, 2.0], [0.21, 0.11, 0.14])],
+      ['muzzle', B.ell([0, 0.07, 1.76], [0.23, 0.12, 0.15])],
     ],
     k: 0.07,
     ear: null,
-    eyes: { theta: 0.4, phi: -0.26, w: 0.27, r: 0.95, tilt: 0.12, pupil: 'slit', pupilW: 0.1 },
-    nose: { at: [0, -0.02], shape: 'nostrils', w: 0.18, h: 0.07, z: 2.02, up: true },
-    mouth: { center: [0, 0.32], corner: [0.42, 0.31], depth: 0.02, kind: 'croc', len: [2.05, 0.45], y: 0.32 },
+    eyes: { theta: 0.4, phi: -0.22, w: 0.32, r: 0.95, tilt: 0.12, pupil: 'slit', pupilW: 0.1 },
+    nose: { at: [0, -0.02], shape: 'nostrils', w: 0.18, h: 0.07, z: 1.8, up: true },
+    mouth: { center: [0, 0.32], corner: [0.42, 0.31], depth: 0.02, kind: 'croc', len: [1.82, 0.45], y: 0.32 },
   },
   cow: {
     prims: () => [
@@ -300,11 +303,33 @@ function features(doc, Rs, head, look = {}) {
     const svg = E.eye(doc, frame2, params);
     out.push(vis.clip ? g({ 'clip-path': vis.clip }, svg) : svg);
   }
+  // ---- blush: soft cheek ovals with three short hatch strokes, laid on the cheek's tangent plane ----
+  if (expr.blush > 0) {
+    const bc = look.blushColor || '#ff6f86';
+    for (const s of [-1, 1]) {
+      const hit = onSurface(head.prims, [s * 0.5, 0.26, 0], [s * 0.65, 0.05, 1]);
+      if (!hit) continue;
+      const pw = head.toWorld(G.add(hit.p, G.mul(hit.n, 0.02))), nw = G.norm(head.dirWorld(hit.n));
+      if (G.dot(G.mvec(view.R, nw), [0, 0, 1]) < 0.15) continue;
+      const pc = Rs.project(pw);
+      if (!Rs.visible(pc[0], pc[1], pc[2], 0.12 * R)) continue;
+      let xa = G.norm(head.dirWorld([1, 0, 0])); xa = G.norm(G.sub(xa, G.mul(nw, G.dot(xa, nw))));
+      const ya = G.norm(G.cross(nw, xa));
+      const P2 = (u, v) => { const q = Rs.project(G.add(pw, G.add(G.mul(xa, u * R), G.mul(ya, v * R)))); return [q[0], q[1]]; };
+      const ring = []; for (let i = 0; i < 24; i++) { const t = i / 24 * Math.PI * 2; ring.push(P2(Math.cos(t) * 0.2, Math.sin(t) * 0.11)); }
+      out.push(path(G.polyD(ring) + 'Z', { fill: bc, opacity: (0.5 * expr.blush).toFixed(2), filter: doc.blur(0.045 * sc) }));
+      for (let k = -1; k <= 1; k++) {
+        const a = P2(k * 0.075 + 0.03, -0.045), b = P2(k * 0.075 - 0.03, 0.045);
+        out.push(path(G.polyD(Ln.taper([a, G.lerp(a, b, 0.5), b], 0.016 * sc, { profile: Ln.taperProfile({ start: 0.4, end: 0.4 }), step: 0 })), { fill: Cc.shift(bc, { dL: -0.12, cK: 1.1 }), opacity: (0.75 * expr.blush).toFixed(2) }));
+      }
+    }
+  }
   // ---- nose ----
   const na = head.anchors.nose;
   if (na) {
     const n = sp.nose, c3 = na.p;
-    const nW = G.norm(na.n);
+    // a nose on a sloped bridge faces up; `face` tilts its drawing plane toward the head's forward axis
+    const nW = G.norm(G.add(G.norm(na.n), G.mul(G.norm(head.dirWorld([0, 0, 1])), n.face || 0)));
     const xw = G.norm(G.cross([0, 1, 0].map((v, i) => head.frame.R[i][1]), nW));
     let xa = G.norm(head.dirWorld([1, 0, 0])); xa = G.norm(G.sub(xa, G.mul(nW, G.dot(xa, nW))));
     const ya = G.norm(G.cross(nW, xa));

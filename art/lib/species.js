@@ -21,7 +21,7 @@ const SPECIES = {
     markings: (R, pal) => [
       { parts: HEAD_ALL, color: pal.muzzle, fn: p => { const q = u(p, R); return Math.max(ellField(q, [0, 0.52, 0.75], [0.62, 0.32, 0.8]), ellField(q, [0, 0.62, 0.2], [0.55, 0.28, 0.5])) * 0.5; } },
       // tear streak from the inner eye corner down the muzzle side
-      { parts: HEAD_ALL, color: pal.mark, opacity: 0.85, fn: p => { const q = u(p, R), s = Math.sign(q[0]) || 1; const t = G.clamp((q[1] - 0.12) / 0.3); const x = s * (0.22 - 0.06 * t); return Math.min(0.035 - Math.abs(q[0] - x), q[1] - 0.1, 0.42 - q[1], q[2] - 0.6) ; } },
+      { parts: HEAD_ALL, color: pal.mark, opacity: 0.55, fn: p => { const q = u(p, R), s = Math.sign(q[0]) || 1; const t = G.clamp((q[1] - 0.1) / 0.36); const x = s * (0.2 + 0.07 * t * t); return Math.min(0.03 * (1 - 0.7 * t) - Math.abs(q[0] - x), q[1] - 0.08, 0.46 - q[1], q[2] - 0.6); } },
     ],
     tufts: (R, s) => [{ parts: ['head.cheek', 'head.jaw'], amp: 0.2 * R * s, period: 0.28 * R * s, flow: [0, 1], lean: 0.8, where: n => n[1] > -0.1 }],
   },
