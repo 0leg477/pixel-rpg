@@ -17,22 +17,22 @@ const both = (fn) => [fn(-1), fn(1)];
 // prims: list of [name, prim] in unit space. ears: ear spec. eyes: placement. nose/mouth: shapes and anchors.
 const SPECIES = {
   cat: {
-    // anime-furry cat girl: big round cranium, short lower face, eyes large and low, the muzzle only a
-    // small bump with a tiny nose right above a small mouth, cheek fluff at the jaw corners
+    // anime-furry cat girl: big round cranium, eyes large and LOW, a short snout that clearly breaks
+    // the profile (top part of the skull, bottom hinged at the jaw), narrow cheeks into a small chin
     prims: () => [
-      ['cranium', B.ell([0, -0.1, -0.04], [1.0, 0.96, 0.95])],
-      ...both(s => ['cheek', B.ell([0.36 * s, 0.2, 0.3], [0.48, 0.4, 0.46])]),
-      ['jaw', B.ellBetween([0, 0.28, 0.24], [0, 0.56, 0.5], 0.3, 0.26)],
-      ['muzzle', B.ell([0, 0.34, 0.8], [0.2, 0.15, 0.17])],
-      ['muzzle', B.ellBetween([0, 0.1, 0.78], [0, 0.3, 0.9], 0.1, 0.08)],
-      ['muzzle', B.ell([0, 0.47, 0.72], [0.12, 0.08, 0.12])],
+      ['cranium', B.ell([0, -0.1, -0.06], [0.98, 0.95, 0.94])],
+      ...both(s => ['cheek', B.ell([0.33 * s, 0.2, 0.28], [0.44, 0.38, 0.42])]),
+      ['jaw', B.ellBetween([0, 0.26, 0.18], [0, 0.56, 0.56], 0.27, 0.24)],
+      ['muzzle', B.ell([0, 0.33, 0.9], [0.2, 0.16, 0.21])],
+      ['muzzle', B.ellBetween([0, 0.04, 0.8], [0, 0.3, 1.04], 0.11, 0.09)],
+      ['muzzle', B.ell([0, 0.49, 0.8], [0.13, 0.09, 0.13])],
     ],
     k: 0.09,
     ear: { base: [0.56, -0.66, -0.06], w: 0.52, h: 0.98, out: 0.36, back: -0.12, poly: [[-1, 0], [-0.55, 0.45], [-0.05, 1], [0.35, 0.5], [1, 0.02], [0, -0.1]], cup: [0.6, 0.2] },
-    eyes: { theta: 0.47, phi: 0.1, w: 0.4, r: 0.97, tilt: 0.12, pupil: 'slit' },
-    nose: { at: [0, 0.29], shape: 'cat', w: 0.11, h: 0.075, face: 0.6 },
+    eyes: { theta: 0.42, phi: 0.1, w: 0.38, r: 0.97, tilt: 0.12, pupil: 'slit' },
+    nose: { at: [0, 0.27], shape: 'cat', w: 0.11, h: 0.075, face: 0.6 },
     // a small mouth under the nose (no philtrum / ':3' loop — it read as a mustache at pin-up scale)
-    mouth: { center: [0, 0.43], corner: [0.075, 0.42], depth: 0.012, kind: 'canid', dimples: false },
+    mouth: { center: [0, 0.45], corner: [0.08, 0.435], depth: 0.012, kind: 'canid', dimples: false },
     whiskers: { from: [[0.14, 0.36], [0.14, 0.4]], len: 0.45, spread: 0.2 },
     muzzleBox: [0, 0.48, 0.74, 0.42, 0.3, 0.38],
   },

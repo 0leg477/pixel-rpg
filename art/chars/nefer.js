@@ -13,21 +13,20 @@ const pal = {
   linen: '#f3ede0', lapis: '#2449b0', gold: '#e8b444', turq: '#35c0b0', kohl: '#0d0a18',
 };
 
+const PU = require('../lib/pinup');
+
 const tailCtrl = [[0, 5, -8], [-6, 13, -15], [-17, 15, -9], [-21, 6, 3], [-15, -2, 11], [-7, -4, 13]];
-// triangle bikini cups (chest coords): base under the bust, apex toward the halter strap; the cups meet at the centre
-const cupField = p => { if (p[2] < 0.5) return -1; const sx = p[0] < 0 ? -1 : 1, dx = p[0] - sx * 6.6, dy = p[1] + 33.0; return Math.min(4.9 - dy, dy + 7.0 - Math.abs(dx) * 1.0, 6.6 - Math.abs(dx)); };
-// halter straps from the cup apex to the back of the neck
-const strapField = p => { if (p[1] > -39.5 || p[1] < -49) return -1; const t = (p[1] + 39.5) / -9.5, x = 6.6 - 3.2 * t; return 0.42 - Math.abs(Math.abs(p[0]) - x); };
-// bikini bottom (pelvis coords): low front edge, high-cut leg openings, thin side ties along the top edge
-// the top edge rises at the back to cover the glutes (their tops sit well above the hip line)
-const bottomTop = (x, z = 10) => { const back = G.smoothstep(6, -3, z); return (2.2 + 0.012 * x * x) * (1 - back) + (-8.4 + 0.02 * x * x) * back; };
-// the back is full-coverage (leg line drops low behind), the front is a classic bikini cut
-const bottomBody = p => {
-  const ax = Math.abs(p[0]), top = bottomTop(p[0], p[2]);
-  const back = G.smoothstep(6, -3, p[2]);
-  const leg = (10.8 - 0.4 * ax) * (1 - back) + (17.5 - 0.2 * ax) * back;
-  return Math.min(p[1] - top, leg - p[1]);
-};
+// hourglass from the shared pin-up generator: ribcage egg, short waist above the navel, teardrop bust
+const BODY = PU.body({ bust: 1.12, waist: 0.95, hips: 1.05, thighs: 1.0, shoulders: 1.0 }, {
+  headR: 14.2,
+  tail: { r: [2.7, 2.55, 2.4, 2.25, 2.0], ctrl: tailCtrl },
+  hand: { paw: true, claws: true },
+});
+// garments follow the body: cups from the bust spec, bottom with full back coverage
+const TOP = PU.bikiniTop(BODY.bust, { size: 1 });
+const cupField = TOP.cup, strapField = TOP.straps;
+const BOTTOM = PU.bikiniBottom({});
+const bottomTop = BOTTOM.top, bottomBody = BOTTOM.body;
 const bottomField = p => Math.max(bottomBody(p), Math.min(0.5 - Math.abs(p[1] - bottomTop(p[0], p[2]) - 0.45), 0.6));
 
 const ch = {
@@ -50,23 +49,7 @@ const ch = {
     { label: 'пояс и передник', target: b => G.tapply(b.body.anchors.pelvisT, [0, 6, 10]), zoom: 6.5, yaw: -0.3 },
   ],
   icon: { expr: 'wink', accent: '#4fd1c5', ring: '#e8b444', yaw: -0.3, zoom: 3.9, cy: 0.5 },
-  body: {
-    headR: 14.6,
-    neck: { len: 5.6, r: 4.4, rTop: 4.0 },
-    torso: [
-      [-49, 5.6, 4.6, -2.0], [-45, 10.2, 6.6, -1.4], [-40, 11.2, 8.0, -0.2], [-35, 11.0, 8.4, 0.4], [-30, 10.0, 8.0, 0.4],
-      [-25, 8.2, 7.0, 0.2], [-19, 7.0, 6.2, -0.2], [-15, 7.4, 6.5, 0.1], [-10, 10.8, 7.8, 0.5], [-5, 15.6, 9.3, 0.5],
-      [0, 18.8, 10.6, -0.3], [5, 18.4, 11.0, -1.2], [9, 14.6, 9.4, -1.0]],
-    shoulder: { x: 11.4 },
-    bust: { r: [7.8, 7.4, 7.0], x: 6.6, y: -33.4, z: 6.0, splay: 0.2, droop: 0.1, separate: true },
-    glutes: { r: [10.8, 11.6, 10.2], x: 8.2 },
-    arm: { upper: 21, fore: 18.5, r: [3.7, 3.2, 2.6, 2.95, 3.0, 2.1] },
-    // thigh thickest a quarter of the way down; a small sphere at the joint so the pelvis (and the bikini on it) stays visible
-    leg: { thigh: 40, shin: 30, meta: 14, hipX: 9.0, r: [10.0, 10.0, 5.2, 4.8, 5.4, 2.7, 2.2], thighR: [8.6, 11.4, 10.2, 7.6, 5.4] },
-    groundY: 77,
-    tail: { r: [2.7, 2.55, 2.4, 2.25, 2.0], ctrl: tailCtrl },
-    hand: { paw: true, claws: true },
-  },
+  body: BODY,
   head: { eyes: {} },
   eye: { iris: pal.eye, lashColor: pal.kohl, lidColor: '#1c1222', lash: 0.34, wing: 0.85, wingUp: 0.45, lowerWing: 0.45, tilt: 0.14, eyeshadow: '#2fa8c8', irisR: 0.68, irisRy: 0.74,
     brow: { color: '#1a1f4a', width: 0.1, y: -1.55 } },
@@ -125,9 +108,9 @@ const ch = {
     // gold edges on the bikini cups, gold halter straps and under-band
     m.push({ parts: [...C.TORSO, 'bustL', 'bustR'], color: pal.gold, edge: Cc.ramp(pal.gold).line, edgeWidth: 0.45, fn: p => { const d = cupField(p); return Math.min(d, 0.55 - d); } });
     m.push({ parts: [...C.TORSO, 'bustL', 'bustR', 'neck'], color: pal.gold, edge: Cc.ramp(pal.gold).line, edgeWidth: 0.4, fn: strapField });
-    m.push({ parts: ['torso.chest', 'torso.waist'], color: pal.gold, edge: Cc.ramp(pal.gold).line, edgeWidth: 0.4, fn: p => (p[2] > 4 ? -1 : 0.38 - Math.abs(p[1] + 27.6)) });
+    m.push({ parts: ['torso.chest', 'torso.waist'], color: pal.gold, edge: Cc.ramp(pal.gold).line, edgeWidth: 0.4, fn: p => (p[2] > 4 ? -1 : 0.38 - Math.abs(p[1] - TOP.underY + 0.4)) });
     // navel and a soft centre line on the belly
-    m.push({ parts: ['torso.waist', 'torso.pelvis'], color: '#9a5a2a', opacity: 0.75, fn: p => (p[2] < 3 ? -1 : 0.5 - Math.hypot(p[0] / 0.55, (p[1] + 9.5) / 0.9)) });
+    m.push({ parts: ['torso.waist', 'torso.pelvis'], color: '#9a5a2a', opacity: 0.75, fn: p => (p[2] < 3 ? -1 : 0.5 - Math.hypot(p[0] / 0.55, (p[1] + 12) / 0.9)) });
     m.push({ parts: ['torso.waist'], color: '#b8783a', opacity: 0.3, fn: p => (p[2] < 3 ? -1 : Math.min(0.16 - Math.abs(p[0]), p[1] + 26, -12 - p[1])) });
     // low belt on the hips: gold with lapis inlay
     const beltY = p => bottomTop(p[0], p[2]) + 0.15;
@@ -170,12 +153,8 @@ const ch = {
     const am0 = G.tapply(pT, [0, 1.4, 10.9]), am1 = G.tapply(pT, [0, 4.6, 11.6]);
     out.push({ name: 'jewel.amulet', k: 0.1, line: 'always', parts: [{ name: 'amulet', mat: 'lapis', prims: [B.ellBetween(am0, am1, 1.5, 0.6)] }] });
     out.push({ name: 'jewel.amuletRim', k: 0.1, parts: [{ name: 'amuletRim', mat: 'gold', prims: [B.ellBetween(G.add(am0, G.mvec(pT.R, [0, -0.3, -0.25])), G.add(am1, G.mvec(pT.R, [0, 0.35, -0.25])), 1.85, 0.5)] }] });
-    // gold bands high on the thighs
-    const Body = require('../lib/body');
-    for (const s of ['L', 'R']) {
-      const hip = a['hip' + s], knee = a['knee' + s];
-      if (hip && knee) { const fr = Body.segFrame(hip, knee); out.push({ name: 'jewel.thigh' + s, k: 0.3, parts: [C.limbBand(fr, G.len(G.sub(knee, hip)), 0.45, 11.7, 1.5, { th: 0.6, flare: 0 })] }); }
-    }
+    // gold bands high on the thighs, fitted to the thigh profile
+    for (const sd of ['L', 'R']) { const tb = PU.thighBand(body, sd, 0.45); if (tb) out.push(tb); }
     // arm bands and bracelets
     for (const s of ['L', 'R']) {
       const up = a['upper' + s], fo = a['fore' + s];
@@ -187,7 +166,7 @@ const ch = {
   expressions: {
     neutral: { smile: 0.25, open: 0.82, lowerLid: 0.08 },
     lazy: { smile: 0.25, open: 0.45, lowerLid: 0.15, brow: { raise: -0.15 }, head: { roll: -0.2, pitch: 0.08, yaw: 0.2 }, ears: { droop: 0.25 } },
-    smirk: { smile: 0.4, smirk: 0.55, open: 0.66, lowerLid: 0.16, blush: 0.7, brow: { raise: 0.1 }, browSide: { R: { raise: 0.45, angle: -0.2 } }, head: { roll: -0.12, yaw: 0.25 } },
+    smirk: { smile: 0.4, smirk: 0.3, open: 0.66, lowerLid: 0.16, blush: 0.7, brow: { raise: 0.1 }, browSide: { R: { raise: 0.45, angle: -0.2 } }, head: { roll: -0.12, yaw: 0.25 } },
     wink: { smile: 0.65, smirk: 0.3, wink: 'R', open: 0.85, blush: 0.4, head: { roll: 0.16, yaw: 0.2 }, ears: { perk: 0.6 } },
     laugh: { smile: 0.85, mouthOpen: 0.55, closed: 'happy', head: { pitch: -0.12, roll: 0.1 }, ears: { perk: 0.4 } },
     annoyed: { smile: -0.4, open: 0.5, lowerLid: 0.3, brow: { angle: 0.6 }, gazeShift: [0.55, 0], head: { yaw: -0.25, roll: 0.05 }, ears: { flat: 0.7 } },

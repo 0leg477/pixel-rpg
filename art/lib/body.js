@@ -188,8 +188,15 @@ function build(specIn = {}, pose = {}, mats = {}) {
   // --- bust (own group: contour under it and its cast shadow on the belly)
   if (sp.bust && sp.bust.r[0] > 0 && sp.bust.separate) {
     const b = sp.bust;
-    groups.push({ name: 'bust', k: 1.6, parts: [-1, 1].map(s => ({ name: 'bust' + (s < 0 ? 'L' : 'R'), mat: m.fur, frame: chestT,
-      prims: [at(chestT, B.ell([s * b.x, b.y, b.z], b.r, rot(s * b.splay, -0.25 + b.droop, 0)))] })) });
+    // teardrop: a heavier lower mass plus a flattened upper slope running to the collarbone / armpit,
+    // blended inside the part — a single ellipsoid reads as an 'air balloon' (round on top and bottom)
+    const prims = s => {
+      if (!b.teardrop) return [at(chestT, B.ell([s * b.x, b.y, b.z], b.r, rot(s * b.splay, -0.25 + b.droop, 0)))];
+      const lower = B.ell([s * b.x, b.y + 0.8, b.z], b.r, rot(s * b.splay, -0.2 + b.droop, 0));
+      const slope = B.ellBetween([s * b.x * 0.95, b.y - 0.2, b.z - b.r[2] * 0.15], [s * (b.x * 0.85 + 0.8), b.y - (b.slope || 9), b.z - b.r[2] * 0.85], b.r[0] * 0.8, b.r[2] * 0.42, [1, 0, 0]);
+      return [at(chestT, lower), at(chestT, slope)];
+    };
+    groups.push({ name: 'bust', k: 1.6, parts: [-1, 1].map(s => ({ name: 'bust' + (s < 0 ? 'L' : 'R'), mat: m.fur, frame: chestT, prims: prims(s), k: b.k || 2.2 })) });
     anchors.bustL = P(chestT, [-b.x, b.y, b.z + b.r[2]]); anchors.bustR = P(chestT, [b.x, b.y, b.z + b.r[2]]);
   }
 
