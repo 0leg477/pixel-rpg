@@ -86,13 +86,6 @@ const ch = {
     // soft oval under the snout + chin (no straight edges: a band read as a mask)
     m.push({ parts: ['head.muzzle', 'head.jaw', 'head.cheek'], color: pal.cream, fn: p => { const q = u(p); return Math.max(0.5 - Math.hypot(q[0] / 0.3, (q[1] - 0.52) / 0.2, (q[2] - 0.85) / 0.5), 0.5 - Math.hypot(q[0] / 0.26, (q[1] - 0.68) / 0.16, (q[2] - 0.45) / 0.5)) * 0.8; } });
     m.push({ parts: ['neck'], color: pal.cream, fn: p => (p[2] - 1.0 - 0.08 * Math.abs(p[0])) * 0.9 });
-    // tabby: brow stripes peeking under the bangs, cheek flicks
-    m.push({ parts: ['head.cheek', 'head.cranium'], color: pal.stripe, opacity: 0.85, fn: p => {
-      const q = u(p), ax = Math.abs(q[0]);
-      let v = -1;
-      for (const [y0, k] of [[0.14, 0.0], [0.3, 0.07]]) { const yy = y0 + (ax - 0.6) * 0.4 + k; const along = G.smoothstep(0.66, 0.8, ax) * (1 - G.smoothstep(1.02, 1.12, ax)); v = Math.max(v, 0.024 * along - Math.abs(q[1] - yy)); }
-      return v * 3;
-    } });
     // arm stripes wrap the outer arm; paws a shade darker (gloves) so hands belong to the same animal
     for (const s of ['L', 'R']) {
       m.push({ parts: ['arm' + s + '.fore', 'arm' + s + '.upper'], color: pal.stripe, opacity: 0.8, fn: p => {

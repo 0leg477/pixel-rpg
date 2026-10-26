@@ -21,8 +21,8 @@ const SPECIES = {
     // large frontal almond eyes; no puffy ':3' whisker pads
     prims: () => [
       ['cranium', B.ell([0, -0.06, -0.06], [0.96, 0.9, 0.92])],
-      ...both(s => ['cheek', B.ell([0.37 * s, 0.26, 0.3], [0.45, 0.42, 0.46])]),
-      ['jaw', B.ellBetween([0, 0.34, 0.22], [0, 0.7, 0.52], 0.3, 0.25)],
+      ...both(s => ['cheek', B.ell([0.34 * s, 0.25, 0.3], [0.42, 0.4, 0.44])]),
+      ['jaw', B.ellBetween([0, 0.34, 0.22], [0, 0.72, 0.5], 0.27, 0.24)],
       ['muzzle', B.ellBetween([0, 0.16, 0.62], [0, 0.4, 1.06], 0.21, 0.17)],
       ['muzzle', B.ellBetween([0, -0.06, 0.74], [0, 0.3, 1.02], 0.13, 0.11)],
       ['muzzle', B.ell([0, 0.49, 0.86], [0.16, 0.1, 0.13])],
@@ -32,7 +32,7 @@ const SPECIES = {
     eyes: { theta: 0.4, phi: 0.02, w: 0.36, r: 0.97, tilt: 0.2, pupil: 'slit' },
     nose: { at: [0, 0.31], shape: 'cat', w: 0.15, h: 0.1, face: 0.5 },
     // a small smile line under the nose (no philtrum / ':3' loop — it read as a mustache at pin-up scale)
-    mouth: { center: [0, 0.5], corner: [0.13, 0.48], depth: 0.02, kind: 'canid' },
+    mouth: { center: [0, 0.5], corner: [0.095, 0.485], depth: 0.015, kind: 'canid', dimples: false },
     whiskers: { from: [[0.16, 0.42], [0.16, 0.47]], len: 0.5, spread: 0.2 },
     muzzleBox: [0, 0.48, 0.74, 0.42, 0.3, 0.38],
   },
@@ -510,7 +510,7 @@ function mouthShape(doc, Rs, head, expr, look) {
     if (a && b) { const pa = Rs.project(a), pb = Rs.project(b); out.push(path(G.polyD(Ln.taper([[pa[0], pa[1]], [pb[0], pb[1]]], 0.035 * sc, { profile: Ln.taperProfile({ start: 0.3, end: 0.1 }), step: 0.5 })), { fill: lineCol })); }
   }
   // corner dimple for smiles
-  if (smile > 0.3 && !open) for (const s of [-1, 1]) {
+  if (smile > 0.3 && !open && m.dimples !== false) for (const s of [-1, 1]) {
     const i = s < 0 ? 0 : N; if (!visible[i]) continue;
     const c = upper[i], q1 = S(c[0] + s * 0.02, c[1] - 0.06), q0 = S(c[0], c[1]);
     if (q1 && q0) { const a = Rs.project(q0), b = Rs.project(q1); out.push(path(G.polyD(Ln.taper([[a[0], a[1]], [b[0], b[1]]], 0.03 * sc, { profile: Ln.taperProfile({ start: 0.1, end: 0.8 }), step: 0.5 })), { fill: lineCol })); }
