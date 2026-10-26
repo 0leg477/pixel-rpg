@@ -63,24 +63,24 @@ function build(style, head, opt = {}) {
   if (style === 'bob') {
     const w = { bang: o.bang ?? -0.3, x: o.winX ?? 0.74, z: o.winZ ?? 0.0, taper: 0.05 };
     const cut = o.cut ?? 0.66;
-    const cc = [0, -0.08, -0.05], rr = [1.1, 1.06, 1.1];
-    addShell('hair.cap', [B.ell(cc, [1.1, 1.06, 1.1]), B.ell([0, 0.4, -0.14], [1.03, 0.62, 0.98])],
+    const cc = [0, -0.08, -0.05], rr = [1.05, 1.02, 1.06];
+    addShell('hair.cap', [B.ell(cc, [1.05, 1.02, 1.06]), B.ell([0, 0.38, -0.14], [0.99, 0.6, 0.94])],
       p => Math.min(cut + 0.06 * p[2] - p[1], -windowField(p, w)));
     // bangs: a row of blunt clumps from the crown to the brow line
     const latOf = y => Math.asin(Math.max(-1, Math.min(1, (y - cc[1]) / rr[1])));
     const nb = o.bangClumps || 9;
     for (let i = 0; i < nb; i++) {
       const f = i / (nb - 1) * 2 - 1, lon1 = f * (o.bangSpread ?? 0.78);
-      const cl = clump(cc, rr, { lat0: -1.25, lon0: lon1 * 0.35, lat1: latOf(w.bang) + 0.02 * Math.cos(i * 2.1), lon1, w: 0.36, t: 0.07, lift: 0.0, tip: 0.85, bulge: 0.05 });
+      const cl = clump(cc, rr, { lat0: -1.25, lon0: lon1 * 0.35, lat1: latOf(w.bang) + 0.02 * Math.cos(i * 2.1), lon1, w: 0.33, t: 0.055, lift: 0.0, tip: 0.85, bulge: 0.035 });
       parts.push({ name: 'hair.bang' + i, mat, frame, prims: cl.prims.map(X), k: 0.04 * R });
     }
     // side curtains: vertical clumps falling to the cut line
     for (const s of [-1, 1]) for (let i = 0; i < 4; i++) {
       const lon = s * (1.0 + i * 0.32);
-      const cl = clump(cc, [1.1, 1.06, 1.06], { lat0: -1.0, lon0: lon * 0.85, lat1: latOf(cut) + 0.06, lon1: lon + s * 0.04, w: 0.4, t: 0.075, lift: 0.0, tip: 0.85, bulge: 0.05, curl: -0.1, n: 18 });
+      const cl = clump(cc, [1.05, 1.02, 1.02], { lat0: -1.0, lon0: lon * 0.85, lat1: latOf(cut) + 0.06, lon1: lon + s * 0.04, w: 0.38, t: 0.06, lift: 0.0, tip: 0.85, bulge: 0.035, curl: -0.08, n: 18 });
       parts.push({ name: 'hair.side' + (s < 0 ? 'L' : 'R') + i, mat, frame, prims: cl.prims.map(X), k: 0.04 * R });
     }
-    markings.push(ring({ c: cc, lat: -0.62, width: 0.04, jag: 0.05, n: 30 }));
+    if (o.ring) markings.push(ring({ c: cc, lat: -0.62, width: 0.04, jag: 0.05, n: 30 }));
   } else if (style === 'ponytail') {
     const w = { bang: -0.62, x: 0.82, z: 0.32, taper: 0.4 };
     addShell('hair.cap', [B.ell([0, -0.1, -0.04], [1.08, 1.05, 1.08])], p => Math.min(0.2 - p[1] + p[2] * 0.4, -windowField(p, w)));

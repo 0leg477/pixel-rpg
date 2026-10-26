@@ -10,7 +10,7 @@ const { g } = require('./svg');
 
 function build(ch, { pose = {}, expr = {} } = {}) {
   const body = Body.build(ch.body, pose, ch.bodyMats || {});
-  const head = Head.build(ch.species, { R: body.spec.headR, frame: body.anchors.headT, eyes: ch.head && ch.head.eyes, ear: ch.head && ch.head.ear, mats: ch.headMats || {}, partMats: ch.head && ch.head.partMats });
+  const head = Head.build(ch.species, { R: body.spec.headR, frame: body.anchors.headT, earPose: expr.ears, eyes: ch.head && ch.head.eyes, ear: ch.head && ch.head.ear, mats: ch.headMats || {}, partMats: ch.head && ch.head.partMats });
   const hair = ch.hair ? Hair.build(ch.hair.style, head, ch.hair.opts || {}) : { groups: [], markings: [], strands: [], extras: [] };
   const ctx = { body, head, hair, pose, expr, ch };
   const extra = ch.extraGroups ? ch.extraGroups(ctx) : [];

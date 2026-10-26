@@ -221,6 +221,11 @@ class Raster {
               }
             }
             if (P.kv && pm > NEG) { bz = pm + P.kv * Math.log(ps); const l = Math.hypot(px, py, pz) || 1; bn = [px / l, py / l, pz / l]; }
+            if (P.bump && bz > NEG) { // normal relief (pleats, folds): offset given in part-local space
+              const loc = this.toLocal(P.pi, [x, y, bz]);
+              const off = P.bump(loc);
+              if (off) { const ov = G.mvec(view.R, G.mvec((P.frame || G.T()).R, off)); bn = G.norm([bn[0] + ov[0], bn[1] + ov[1], bn[2] + ov[2]]); if (bn[2] < 0.02) bn[2] = 0.02; }
+            }
             const gi2 = (j - j0) * GW + (i - i0);
             if (bf > fG[gi2]) fG[gi2] = bf;
             if (bz <= NEG) continue;

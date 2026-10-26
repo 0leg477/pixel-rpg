@@ -99,10 +99,25 @@ function folds(Rs, lines, { color = '#8b7f73', width = 1.1, opacity = 0.6, hi = 
 
 // Skirt: elliptic sections from the waist to the hem, bound to the pelvis (rest coords).
 // rows: [[y, halfWidth, halfDepth, zShift], ...]
-function skirt(pelvT, rows, { mat = 'linen', name = 'skirt', step = 1.6, k = 1.2 } = {}) {
+function skirt(pelvT, rows, { mat = 'linen', name = 'skirt', step = 1.6, k = 1.2, pleats = 0, pleatAmp = 0.35 } = {}) {
   const lerpRow = y => { let i = 1; while (i < rows.length - 1 && rows[i][0] < y) i++; const a = rows[i - 1], b = rows[i]; const f = Math.max(0, Math.min(1, (y - a[0]) / (b[0] - a[0]))); return a.map((v, k2) => v + (b[k2] - v) * f); };
   const prims = [];
   for (let y = rows[0][0] + 2; y <= rows[rows.length - 1][0] - 2; y += step) { const [, w, d, z] = lerpRow(y); prims.push(B.xform(B.ell([0, y, z], [w, 4.5, d]), pelvT)); }
-  return { name, k: 1.5, parts: [{ name, mat, frame: pelvT, prims, k }] };
+  const bump = pleats ? (p => { const a = Math.atan2(p[0], p[2]); const s = Math.sin(a * pleats + 0.3 * Math.sin(p[1] * 0.08)); const k2 = pleatAmp * G.smoothstep(rows[0][0] + 6, rows[0][0] + 22, p[1]); return [Math.cos(a) * s * k2, 0, -Math.sin(a) * s * k2]; }) : null;
+  return { name, k: 1.5, parts: [{ name, mat, frame: pelvT, prims, k, bump }] };
 }
-module.exports = { skirt, TORSO, usekh, region, glint, torus, limbBand, disc, folds };
+// Paw pads in hand-local coordinates: a three-lobed main pad on the palm and one pad per fingertip.
+function pawPads(side, color, tipPads, { mirror = false } = {}) {
+  const s = mirror ? -1 : 1;
+  const main = p => {
+    if (p[2] < 0.45) return -1;
+    const lobes = [[0, 3.6], [s * 1.3, 4.3], [-s * 1.3, 4.3]].map(([x, y]) => 1.25 - Math.hypot((p[0] - x) * 0.9, (p[1] - y) * 0.75));
+    const body = 1.55 - Math.hypot(p[0] * 0.62, (p[1] - 4.9) * 1.1);
+    return Math.max(body, ...lobes) * 1.2;
+  };
+  const out = [{ parts: ['hand' + side + '.palm'], color, fn: main }];
+  const fingerParts = ['f0', 'f1', 'f2', 'f3', 'thumb'].map(n => 'hand' + side + '.' + n);
+  if (tipPads) out.push({ parts: fingerParts, color, fn: p => { let v = -1; for (const tp of tipPads) v = Math.max(v, tp.r - G.len(G.sub(p, tp.c))); return v * 1.5; } });
+  return out;
+}
+module.exports = { pawPads, skirt, TORSO, usekh, region, glint, torus, limbBand, disc, folds };

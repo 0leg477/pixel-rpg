@@ -22,14 +22,15 @@ const ch = {
     tail: { r: [2.5, 2.35, 2.25, 2.1, 1.7], ctrl: tailCtrl },
     hand: { paw: true, claws: true },
   },
-  head: { eyes: { w: 0.31 } },
+  head: { eyes: { w: 0.35, theta: 0.46 } },
   eye: { iris: pal.eye, lashColor: pal.kohl, lidColor: '#2a1a24', lash: 0.24, wing: 0.7, wingUp: 0.38, lowerWing: 0.55, tilt: 0.2,
     brow: { color: '#5a3a26', width: 0.12, y: -1.5 } },
   noseColor: pal.nose, mouthLine: '#3b2226', whiskerColor: '#fff6e6',
-  hair: { style: 'bob', opts: { bang: -0.36, winX: 0.98, winZ: -0.1, cut: 0.86, sheen: '#7d9cff' } },
+  hair: { style: 'bob', opts: { bang: -0.4, winX: 0.98, winZ: -0.1, cut: 0.8, sheen: '#7d9cff' } },
+  bustScale: 8.2,
   hairLines: { lineColor: '#090b18', hiColor: '#4e6bb8', width: 0.08 },
   materials: {
-    fur: { base: pal.fur, sss: true }, innerEar: { base: pal.innerEar, edgeLine: false }, hair: { base: pal.hair, rimT: 0.05, t1: 0.3, hiK: 0.35, rimK: 0.8 },
+    fur: { base: pal.fur, sss: true }, innerEar: { base: pal.innerEar, edgeLine: false }, hair: { base: pal.hair, rimT: 0.05, t1: 0.3, hiK: 0.35, rimK: 0.8, gloss: 0.955 },
     claw: { base: '#f5ecd8', gloss: 0.9 }, linen: { base: pal.linen, t0: 0.02, edgeLine: true, line: '#7d7064' }, 'hair:inner': { base: '#0b0e22', shading: 'flat' }, gold: { base: pal.gold, shading: 'metal' }, lapis: { base: pal.lapis, gloss: 0.9 },
   },
   tufts: ({ Rs }) => [
@@ -91,13 +92,13 @@ const ch = {
     const out = [];
     const R = head.R;
     // diadem over the bangs with a lapis-and-gold sun at the front
-    const hc = head.toWorld([0, -0.48, -0.05]), axis = head.dirWorld([0, 1, 0]);
-    const ring = C.torus(hc, axis, 1.1 * R, 0.055 * R);
-    const front = head.toWorld([0, -0.48, 1.13]), fn = head.dirWorld([0, -0.05, 1]);
+    const hc = head.toWorld([0, -0.5, -0.06]), axis = head.dirWorld([0, 1, 0.08]);
+    const ring = C.torus(hc, axis, 1.1 * R, 0.045 * R);
+    const front = head.toWorld([0, -0.52, 1.1]), fn = head.dirWorld([0, -0.1, 1]);
     out.push({ name: 'jewel.diadem', k: 0.3, parts: [
       { name: 'diadem', mat: 'gold', prims: ring, k: 0.2 },
-      { name: 'diadem.gem', mat: 'lapis', prims: [C.disc(front, fn, 0.17 * R, 0.35)] },
-      { name: 'diadem.rim', mat: 'gold', prims: C.torus(front, fn, 0.19 * R, 0.035 * R) },
+      { name: 'diadem.gem', mat: 'lapis', prims: [C.disc(front, fn, 0.13 * R, 0.4)] },
+      { name: 'diadem.rim', mat: 'gold', prims: C.torus(front, fn, 0.145 * R, 0.03 * R) },
     ] });
     // ear hoops (pierced ears like the bronze Bastet cat)
     for (const s of ['L', 'R']) {
@@ -112,23 +113,27 @@ const ch = {
     // arm bands and bracelets
     for (const s of ['L', 'R']) {
       const up = body.anchors['upper' + s], fo = body.anchors['fore' + s];
-      if (up) out.push({ name: 'jewel.arm' + s, k: 0.3, parts: [C.limbBand(up, 23, 0.36, 4.5, 1.6)] });
-      if (fo) out.push({ name: 'jewel.wrist' + s, k: 0.3, parts: [C.limbBand(fo, 20, 0.86, 3.05, 1.4), C.limbBand(fo, 20, 0.72, 3.35, 0.9)] });
+      if (up) out.push({ name: 'jewel.arm' + s, k: 0.3, parts: [C.limbBand(up, 23, 0.36, 3.95, 1.5)] });
+      if (fo) out.push({ name: 'jewel.wrist' + s, k: 0.3, parts: [C.limbBand(fo, 20, 0.86, 2.85, 1.3), C.limbBand(fo, 20, 0.72, 3.1, 0.85)] });
     }
     return out;
   },
   expressions: {
     neutral: { smile: 0.15 },
-    smirk: { smile: 0.35, smirk: 0.6, open: 0.62, lowerLid: 0.15, brow: { raise: 0.1 }, browSide: { R: { raise: 0.5, angle: -0.2 } } },
-    lazy: { smile: 0.2, open: 0.48, lowerLid: 0.1, brow: { raise: -0.1 } },
-    wink: { smile: 0.6, smirk: 0.3, wink: 'R', open: 0.85 },
-    laugh: { smile: 0.8, mouthOpen: 0.6, closed: 'happy' },
-    annoyed: { smile: -0.35, open: 0.55, lowerLid: 0.25, brow: { angle: 0.55 }, gazeShift: [0.5, 0] },
-    surprised: { smile: 0, mouthOpen: 0.35, open: 1.18, brow: { raise: 0.8 } },
-    sad: { smile: -0.45, open: 0.8, brow: { angle: -0.7, raise: 0.3 }, gazeShift: [0, 0.35] },
-    flirty: { smile: 0.5, smirk: 0.2, open: 0.7, lowerLid: 0.2, gazeShift: [-0.3, 0.1], brow: { raise: 0.2 } },
+    lazy: { smile: 0.2, open: 0.42, lowerLid: 0.12, brow: { raise: -0.15 }, head: { roll: -0.2, pitch: 0.08, yaw: 0.2 }, ears: { droop: 0.25 } },
+    smirk: { smile: 0.35, smirk: 0.6, open: 0.62, lowerLid: 0.15, brow: { raise: 0.1 }, browSide: { R: { raise: 0.5, angle: -0.2 } }, head: { roll: -0.12, yaw: 0.25 } },
+    wink: { smile: 0.65, smirk: 0.3, wink: 'R', open: 0.9, head: { roll: 0.16, yaw: 0.2 }, ears: { perk: 0.6 } },
+    laugh: { smile: 0.85, mouthOpen: 0.65, closed: 'happy', head: { pitch: -0.12, roll: 0.1 }, ears: { perk: 0.4 } },
+    annoyed: { smile: -0.4, open: 0.5, lowerLid: 0.3, brow: { angle: 0.6 }, gazeShift: [0.55, 0], head: { yaw: -0.25, roll: 0.05 }, ears: { flat: 0.7 } },
+    surprised: { smile: 0, mouthOpen: 0.4, open: 1.2, brow: { raise: 0.9 }, head: { pitch: -0.08 }, ears: { perk: 1 } },
+    sad: { smile: -0.5, open: 0.75, brow: { angle: -0.75, raise: 0.35 }, gazeShift: [0, 0.4], head: { pitch: 0.18, roll: -0.08 }, ears: { droop: 0.9 } },
+    flirty: { smile: 0.5, smirk: 0.2, open: 0.68, lowerLid: 0.2, gazeShift: [-0.35, 0.1], brow: { raise: 0.2 }, head: { roll: 0.22, yaw: 0.3, pitch: 0.05 } },
   },
   poses: {
+    bust: {
+      pelvis: {}, chest: { yaw: 0.1 }, head: { yaw: 0.2 },
+      armL: { hand: [-15, -2, 6], pose: 'relaxed' }, armR: { hand: [15, -2, 6], pose: 'relaxed' },
+    },
     halfbody: {
       pelvis: { roll: 0.07, yaw: -0.08 }, chest: { roll: -0.07, yaw: 0.12, pitch: -0.05 }, head: { yaw: 0.28, pitch: 0.06, roll: -0.14 },
       armL: { hand: [-4.5, -40, 11.5], pole: [-26, -20, -4], pose: 'elegant', palm: [0.6, 0.1, -0.8], finger: [0.55, -0.6, 0.45] },

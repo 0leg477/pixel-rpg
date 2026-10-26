@@ -13,7 +13,7 @@ const DEFAULT = {
     [-49, 5.8, 4.8, -2.0], [-45, 10.6, 6.6, -1.4], [-40, 11.6, 8.2, -0.4], [-35, 11.6, 8.8, 0.2], [-30, 11.0, 8.6, 0.3],
     [-25, 9.8, 7.8, 0.0], [-19, 8.5, 7.0, -0.4], [-15, 8.4, 6.8, -0.3], [-10, 9.8, 7.3, 0.1], [-5, 13.0, 8.4, 0.0],
     [0, 15.8, 9.6, -0.6], [5, 15.2, 9.8, -1.2], [9, 12.0, 8.2, -1.0]],
-  jugularY: -48, shoulder: { x: 13.6, y: -45, z: -1.5 },
+  jugularY: -48, shoulder: { x: 12.6, y: -45, z: -1.5 },
   chest: { w: 12.4, h: 13, d: 9.4, y: -35 },
   bust: { r: [5.3, 5.0, 4.6], x: 5.9, y: -33.5, z: 5.4, splay: 0.25, droop: 0.05 },
   waist: { w: 9.0, d: 7.0, y: -17 },
@@ -21,9 +21,9 @@ const DEFAULT = {
   hips: { w: 15.8, d: 10.4, y: 0 },
   glutes: { r: [8.6, 9.6, 8.2], x: 7.0, y: 4, z: -4.6 },
   abs: 0, muscle: 0.2,
-  arm: { upper: 23, fore: 20, r: [4.5, 3.8, 3.15, 3.4, 3.55, 2.45] },
+  arm: { upper: 23, fore: 20, r: [4.0, 3.4, 2.9, 3.1, 3.25, 2.3] },
   hand: { scale: 1, paw: true, claws: true, fingers: 4 },
-  leg: { thigh: 40, shin: 33, meta: 15, toes: 7, digitigrade: true, hipX: 8.6, r: [9.4, 7.6, 5.0, 4.6, 5.2, 2.8, 2.3] },
+  leg: { thigh: 40, shin: 30.5, meta: 15, toes: 7, digitigrade: true, hipX: 8.6, r: [9.4, 7.6, 5.0, 4.6, 5.2, 2.8, 2.3] },
   groundY: 79,
   tail: null,
 };
@@ -61,7 +61,7 @@ const profile = (vals) => t => {
 const HAND_POSES = {
   relaxed: { curl: [0.25, 0.32, 0.38, 0.45], spread: 0.08, thumb: 0.3, thumbOut: 0.35 },
   open: { curl: [0.05, 0.05, 0.08, 0.1], spread: 0.22, thumb: 0.05, thumbOut: 0.7 },
-  fist: { curl: [1.45, 1.5, 1.5, 1.45], spread: 0.0, thumb: 0.9, thumbOut: 0.15 },
+  fist: { curl: [1.55, 1.6, 1.6, 1.55], spread: 0.0, thumb: 1.0, thumbOut: 0.1 },
   grip: { curl: [1.05, 1.15, 1.2, 1.2], spread: 0.0, thumb: 0.8, thumbOut: 0.35 },
   point: { curl: [0.05, 1.4, 1.45, 1.4], spread: 0.05, thumb: 0.8, thumbOut: 0.2 },
   elegant: { curl: [0.12, 0.3, 0.48, 0.62], spread: 0.12, thumb: 0.25, thumbOut: 0.45 },
@@ -74,42 +74,52 @@ function handPrims(spec, poseName, mirror) {
   const hp = typeof poseName === 'object' ? poseName : (HAND_POSES[poseName] || HAND_POSES.relaxed);
   const k = spec.scale || 1, paw = spec.paw;
   const sx = mirror ? -1 : 1;
-  const parts = [];
-  const palm = [B.ell([0, 4.4 * k, 0.1 * k], [3.6 * k * (paw ? 1.1 : 1), 4.6 * k, 1.6 * k * (paw ? 1.2 : 1)])];
-  parts.push({ name: 'palm', prims: palm });
+  const E = (c, r, R) => B.ell(c.map(v => v * k), r.map(v => v * k), R);
+  // palm block, knuckle ridge, thumb mound (thenar) and outer mound (hypothenar)
+  const palm = [
+    E([0, 4.3, 0], [3.35 * (paw ? 1.06 : 1), 4.3, 1.3 * (paw ? 1.12 : 1)]),
+    E([0, 7.9, -0.15], [3.2, 1.25, 1.25]),
+    E([sx * 2.25, 2.7, 0.55], [1.45, 2.3, 1.15], G.euler(0, 0, -sx * 0.35)),
+    E([-sx * 2.35, 3.8, 0.3], [1.05, 2.6, 1.0]),
+  ];
   const fingers = [];
-  const xs = [2.4, 0.82, -0.78, -2.3], lens = [6.2, 6.8, 6.4, 5.0].map(v => v * (paw ? 0.8 : 1)), rad = paw ? 1.18 : 0.9;
+  const xs = [2.1, 0.7, -0.7, -2.05], ys = [8.4, 8.75, 8.5, 8.0];
+  const lens = [5.6, 6.1, 5.7, 4.6].map(v => v * (paw ? 0.86 : 1)), rad = paw ? 1.06 : 0.92;
+  const bendTo = (dir, ang) => { const side = G.norm(G.cross(dir, [0, 0, 1])); return G.mvec(G.axisAngle(side, ang), dir); };
+  const tipPads = [];
   for (let f = 0; f < 4; f++) {
-    const base = [sx * xs[f] * k, 8.4 * k - Math.abs(xs[f]) * 0.25 * k, 0.15 * k];
-    let dir = G.norm([sx * (xs[f] * 0.06 + (f - 1.5) * hp.spread * 0.6), 1, 0]);
-    const segs = [0.45, 0.3, 0.25].map(v => v * lens[f] * k);
+    const base = [sx * xs[f] * k, ys[f] * k, 0.1 * k];
+    let dir = G.norm([sx * ((f - 1.5) * hp.spread * 0.7 + xs[f] * 0.03), 1, 0]);
+    const segs = [0.42, 0.32, 0.26].map(v => v * lens[f] * k);
     const pts = [base]; let p = base;
     for (let s = 0; s < 3; s++) {
-      const curl = hp.curl[f] * (s === 0 ? 0.8 : 1.1);
-      // bend toward the palm (+z): rotate dir around the finger's side axis
-      const side = G.norm(G.cross(dir, [0, 0, 1]));
-      dir = G.mvec(G.axisAngle(side, -curl), dir);
+      dir = bendTo(dir, hp.curl[f] * (s === 0 ? 0.75 : 1.05)); // curl toward the palm (+z)
       p = G.add(p, G.mul(dir, segs[s])); pts.push(p);
     }
-    const r = profile([rad * 1.05, rad, rad * 0.95, rad * 0.86].map(v => v * k));
-    const prims = B.sweep(G.catmull(pts, { seg: 4 }).map(q => [q[0], q[1], q[2] || 0]), r, { spacing: 0.22 });
+    // knuckle bulges at the joints
+    const r = t => rad * k * (1.0 - 0.22 * t + 0.07 * Math.exp(-(((t - 0.42) / 0.06) ** 2)) + 0.06 * Math.exp(-(((t - 0.74) / 0.05) ** 2)));
+    const prims = B.sweep(G.catmull(pts, { seg: 5 }), r, { spacing: 0.2 });
     const tip = pts[3], tipDir = G.norm(G.sub(pts[3], pts[2]));
-    if (spec.claws) prims.push(B.ellBetween(G.sub(tip, G.mul(tipDir, 0.2 * k)), G.add(tip, G.mul(tipDir, 1.1 * k)), 0.42 * k, 0.32 * k, [1, 0, 0]));
+    // pad under the last phalanx (palm side)
+    const padN = G.norm(G.sub([0, 0, 1], G.mul(tipDir, G.dot([0, 0, 1], tipDir))));
+    tipPads.push({ c: G.add(G.lerp(pts[2], pts[3], 0.55), G.mul(padN, rad * k * 0.55)), r: rad * k * 0.62 });
+    if (spec.claws) prims.push(B.ellBetween(G.sub(tip, G.mul(tipDir, 0.25 * k)), G.add(G.add(tip, G.mul(tipDir, 0.95 * k)), G.mul(padN, -0.25 * k)), 0.36 * k, 0.28 * k, [1, 0, 0]));
     fingers.push({ name: 'f' + f, prims, tip, pts, claw: spec.claws });
   }
-  // thumb
-  const tb = [sx * 3.0 * k, 2.4 * k, 0.9 * k];
-  let td = G.norm([sx * (0.55 + hp.thumbOut * 0.6), 0.75, 0.35 + hp.thumb * 0.5]);
+  // thumb from the thenar mound, swinging across the palm with `thumb`
+  const tb = [sx * 2.75 * k, 3.1 * k, 0.95 * k];
+  let td = G.norm([sx * (0.4 + hp.thumbOut * 0.55), 0.78, 0.38]);
+  td = G.mvec(G.axisAngle([0, 1, 0.2], sx * hp.thumb * 0.9), td); // opposition: swing toward the palm side
   const tpts = [tb]; let tp = tb;
   for (let s = 0; s < 2; s++) {
-    const side = G.norm(G.cross(td, [0, 0, 1]));
-    td = G.mvec(G.axisAngle(side, -sx * hp.thumb * 0.5), td);
-    tp = G.add(tp, G.mul(td, (s ? 2.6 : 3.4) * k)); tpts.push(tp);
+    td = bendTo(td, hp.thumb * 0.45);
+    tp = G.add(tp, G.mul(td, (s ? 2.3 : 2.9) * k * (paw ? 0.92 : 1))); tpts.push(tp);
   }
-  const thumb = B.sweep(G.catmull(tpts, { seg: 4 }).map(q => [q[0], q[1], q[2] || 0]), profile([1.35, 1.1, 0.92].map(v => v * k * (paw ? 1.05 : 1))), { spacing: 0.22 });
-  if (spec.claws) { const tdn = G.norm(G.sub(tpts[2], tpts[1])); thumb.push(B.ellBetween(G.sub(tpts[2], G.mul(tdn, 0.2 * k)), G.add(tpts[2], G.mul(tdn, 1.0 * k)), 0.42 * k, 0.32 * k, [1, 0, 0])); }
-  parts.push({ name: 'thumb', prims: thumb });
-  return { palm: parts[0], thumb: parts[1], fingers };
+  const thumb = B.sweep(G.catmull(tpts, { seg: 5 }), t => k * (paw ? 1.18 : 1.05) * (1 - 0.22 * t), { spacing: 0.2 });
+  const tdn = G.norm(G.sub(tpts[2], tpts[1]));
+  if (spec.claws) thumb.push(B.ellBetween(G.sub(tpts[2], G.mul(tdn, 0.25 * k)), G.add(tpts[2], G.mul(tdn, 0.95 * k)), 0.36 * k, 0.28 * k, [1, 0, 0]));
+  tipPads.push({ c: G.add(G.lerp(tpts[1], tpts[2], 0.6), [0, 0, 0.6 * k]), r: 0.7 * k });
+  return { palm: { name: 'palm', prims: palm }, thumb: { name: 'thumb', prims: thumb }, fingers, tipPads };
 }
 
 // ---------------- build ----------------
@@ -213,7 +223,7 @@ function build(specIn = {}, pose = {}, mats = {}) {
     const handT = { R: handR, t: wrist };
     const hpr = handPrims(sp.hand, ap.pose || 'relaxed', false);
     const hparts = [];
-    hparts.push({ name: 'hand' + side + '.palm', mat: m.fur, frame: handT, prims: hpr.palm.prims.map(pr => at(handT, pr)) });
+    hparts.push({ name: 'hand' + side + '.palm', mat: m.fur, frame: handT, prims: hpr.palm.prims.map(pr => at(handT, pr)), k: 0.5 });
     const hg = { name: 'hand' + side, k: 0.5, parts: hparts };
     groups.push(hg);
     // fingers and thumb as their own groups so a line always separates them
@@ -233,6 +243,7 @@ function build(specIn = {}, pose = {}, mats = {}) {
     }
     anchors['hand' + side] = handT;
     anchors['fingertips' + side] = hpr.fingers.map(f => G.tapply(handT, f.tip));
+    anchors['tipPads' + side] = hpr.tipPads;
   }
 
   // --- legs

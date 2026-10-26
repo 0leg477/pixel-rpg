@@ -104,8 +104,13 @@ function figure(R, doc, opt = {}) {
     return v;
   };
   const LAYERS = [
+    // light colour on the lit side and ambient colour everywhere (warm torch, cold moon, fire...)
+    light.keyColor && { fn: id => (lam(id) - spec[R.mat1[id]].t0) * K, fill: light.keyColor, opacity: light.keyOpacity == null ? 0.35 : light.keyOpacity, blur: 1.5 * lw, blend: light.keyBlend || 'multiply' },
+    light.ambient && { fn: () => 10, fill: light.ambient, opacity: light.ambientOpacity == null ? 0.25 : light.ambientOpacity, blend: 'multiply' },
     // halftone: soft gradient on the turning side
     { fn: id => (spec[R.mat1[id]].t1 - lam(id)) * K, fill: tn => tn.mid, opacity: 0.32, blur: 8 * lw },
+    // extra scene darkening of the shadow side (backlight, night, fire from below)
+    light.shadowExtra && { fn: shadowV, fill: light.shadowExtra, opacity: light.shadowExtraOpacity == null ? 0.6 : light.shadowExtraOpacity, blur: 0.8 * lw },
     // cel shadow (form + cast), slightly softened edge
     { fn: shadowV, fill: tn => tn.shadow, opacity: 1, blur: 0.6 * lw },
     // warm core band at the terminator on organic materials (subsurface scattering)
@@ -338,7 +343,9 @@ function tuftify(pts, nrm, mask, { amp = 6, period = 7, flow = [0, 1], lean = 0.
     // lean the tips along the flow direction (tangential part only)
     const fdot = flow[0] * n[0] + flow[1] * n[1];
     const ft = [flow[0] - n[0] * fdot, flow[1] - n[1] * fdot];
-    const dx = n[0] + ft[0] * lean, dy = n[1] + ft[1] * lean;
+    // the tip bends further along the flow than the base: curved, flame-like tufts
+    const bendK = lean * (0.35 + 0.9 * prof);
+    const dx = n[0] + ft[0] * bendK, dy = n[1] + ft[1] * bendK;
     out.push([pts[i][0] + dx * a * prof * m, pts[i][1] + dy * a * prof * m]);
   }
   return out;
