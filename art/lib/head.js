@@ -29,8 +29,8 @@ const SPECIES = {
     ear: { base: [0.6, -0.6, 0.02], w: 0.42, h: 0.82, out: 0.42, back: -0.12, poly: [[-1, 0], [-0.55, 0.45], [-0.05, 1], [0.35, 0.5], [1, 0.02], [0, -0.1]], cup: [0.6, 0.2] },
     eyes: { theta: 0.47, phi: 0.07, w: 0.3, r: 0.97, tilt: 0.18, pupil: 'slit' },
     nose: { at: [0, 0.24], shape: 'cat', w: 0.2, h: 0.13 },
-    mouth: { center: [0, 0.47], corner: [0.22, 0.45], depth: 0.06, kind: 'cat' },
-    whiskers: { from: [[0.22, 0.43], [0.22, 0.5]], len: 0.72, spread: 0.2 },
+    mouth: { center: [0, 0.47], corner: [0.17, 0.455], depth: 0.055, kind: 'cat' },
+    whiskers: { from: [[0.22, 0.45], [0.22, 0.51]], len: 0.6, spread: 0.24 },
     muzzleBox: [0, 0.48, 0.74, 0.42, 0.3, 0.38],
   },
   fennec: {
@@ -476,7 +476,7 @@ function mouthShape(doc, Rs, head, expr, look) {
   for (const idx of segs) {
     idx.sort((a, b) => a - b);
     const pts = idx.map(i => [proj[i][0], proj[i][1]]);
-    out.push(path(G.polyD(Ln.taper(pts, (t) => 0.045 * sc * (0.55 + 0.45 * Math.sin(Math.PI * t)), { profile: Ln.taperProfile({ start: 0.15, end: 0.15 }) })), { fill: lineCol }));
+    out.push(path(G.polyD(Ln.taper(pts, (t) => 0.03 * sc * (0.75 + 0.25 * Math.cos(Math.PI * 2 * t)), { profile: Ln.taperProfile({ start: 0.18, end: 0.18 }) })), { fill: lineCol }));
   }
   // philtrum for cats (nose to mouth)
   if (m.kind === 'cat' && head.anchors.nose && visible[N / 2]) {

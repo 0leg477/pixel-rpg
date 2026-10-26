@@ -64,13 +64,12 @@ function torus(c, n, R, r, { seg = 0, phase = 0 } = {}) {
   for (let i = 0; i <= N; i++) { const t = phase + i / N * Math.PI * 2; pts.push(G.add(c, G.add(G.mul(a, Math.cos(t) * R), G.mul(b, Math.sin(t) * R)))); }
   return pts.map(p => B.sphere(p, r));
 }
-// Band around a limb segment frame (canonical bone space): at fraction t of length L, radius rr.
-function limbBand(frame, L, t, rr, width, { mat = 'gold', name = 'band' } = {}) {
-  const c = G.tapply(frame, [0, L * t, 0]);
-  const n = G.mvec(frame.R, [0, 1, 0]);
-  const prims = [];
-  for (let k = -1; k <= 1; k += 0.5) prims.push(...torus(G.add(c, G.mul(n, k * width / 2.2)), n, rr, width * 0.32));
-  return { name, mat, prims, k: 0.25 };
+// Cuff around a limb (canonical bone space): a short sweep along the bone that hugs the limb.
+// t: centre as a fraction of the bone length L, rr: radius (limb radius there + thickness), width along the bone.
+function limbBand(frame, L, t, rr, width, { mat = 'gold', name = 'band', flare = 0.06 } = {}) {
+  const a = G.tapply(frame, [0, L * t - width / 2, 0]), b = G.tapply(frame, [0, L * t + width / 2, 0]);
+  const prims = B.sweep([a, b], s => rr * (1 + flare * Math.sin(Math.PI * s)), { spacing: 0.12 });
+  return { name, mat, prims, k: 0.3 };
 }
 // Disc (sun disk) as a thin ellipsoid; ring rim as torus.
 function disc(c, n, R, thick = 0.12) {
@@ -102,9 +101,10 @@ function folds(Rs, lines, { color = '#8b7f73', width = 1.1, opacity = 0.6, hi = 
 function skirt(pelvT, rows, { mat = 'linen', name = 'skirt', step = 1.6, k = 1.2, pleats = 0, pleatAmp = 0.35 } = {}) {
   const lerpRow = y => { let i = 1; while (i < rows.length - 1 && rows[i][0] < y) i++; const a = rows[i - 1], b = rows[i]; const f = Math.max(0, Math.min(1, (y - a[0]) / (b[0] - a[0]))); return a.map((v, k2) => v + (b[k2] - v) * f); };
   const prims = [];
-  for (let y = rows[0][0] + 2; y <= rows[rows.length - 1][0] - 2; y += step) { const [, w, d, z] = lerpRow(y); prims.push(B.xform(B.ell([0, y, z], [w, 4.5, d]), pelvT)); }
+  for (let y = rows[0][0] + 2; y <= rows[rows.length - 1][0] - 2; y += step) { const [, w, d, z] = lerpRow(y); prims.push(B.xform(B.ell([0, y, z], [w, 7, d]), pelvT)); }
   const bump = pleats ? (p => { const a = Math.atan2(p[0], p[2]); const s = Math.sin(a * pleats + 0.3 * Math.sin(p[1] * 0.08)); const k2 = pleatAmp * G.smoothstep(rows[0][0] + 6, rows[0][0] + 22, p[1]); return [Math.cos(a) * s * k2, 0, -Math.sin(a) * s * k2]; }) : null;
-  return { name, k: 1.5, parts: [{ name, mat, frame: pelvT, prims, k, bump }] };
+  const top = rows[0][0];
+  return { name, k: 1.5, parts: [{ name, mat, frame: pelvT, prims, k, bump, keep: p => p[1] - top }] };
 }
 // Paw pads in hand-local coordinates: a three-lobed main pad on the palm and one pad per fingertip.
 function pawPads(side, color, tipPads, { mirror = false } = {}) {

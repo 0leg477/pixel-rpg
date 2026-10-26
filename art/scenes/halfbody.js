@@ -11,9 +11,15 @@ function compose(ch, { expr = 'smirk', W = 1000, H = 1250, view, bg = null } = {
   const doc = new Doc(W, H, { title: `${ch.title} — поясной портрет`, bg: '#1b1830' });
   const sc = ch.halfbodyView || {};
   const v = { yaw: -0.5, pitch: 0.0, s: 11, ox: 500, oy: 1000, ...sc, ...(view || {}) };
-  if (bg) bg(doc, ch, v);
+  if (bg) {
+    const probe = F.build(ch, { pose: ch.poses.halfbody, expr: ch.expressions[expr] || {} });
+    const { toView, viewOf } = require('../lib/raster');
+    const hc0 = toView(viewOf(v), probe.head.anchors.cranium);
+    bg(doc, ch, v, { head: [hc0[0], hc0[1]], haloR: probe.head.R * v.s * 2.6 });
+  }
   const light = { key: [-0.62, -0.55, 0.56], rim: [0.9, -0.3, -0.35], ...(ch.light || {}) };
-  const r = F.render(doc, ch, { pose: ch.poses.halfbody, expr: ch.expressions[expr] || ch.expressions.neutral, view: v, box: { x0: 0, y0: 0, w: W, h: H }, step: 1, light, lineScale: 1.15 });
+  const r = F.render(doc, ch, { pose: ch.poses.halfbody, expr: ch.expressions[expr] || ch.expressions.neutral, view: v, box: { x0: 0, y0: 0, w: W, h: H }, step: 1, light, lineScale: 1.3 });
+  if (bg) require('./temple').foreground(doc);
   // QA crops: face and hands
   const hc = r.Rs.project(r.head.anchors.cranium);
   const fr = r.head.R * v.s * 2.4;

@@ -26,7 +26,7 @@ function sheet(ch, list, { cols = 4, cw = 420, chh = 470, title = null, bgCell =
     // centre the head: build once to find it, then shift the view
     const probe = F.build(ch, { pose, expr: ex });
     const hc = require('../lib/raster').toView(require('../lib/raster').viewOf(v), probe.head.anchors.cranium);
-    v.oy += (y0 + chh * 0.42) - hc[1]; v.ox += (x0 + cw / 2) - hc[0];
+    v.oy += (y0 + chh * (ch.emoCy || 0.4)) - hc[1]; v.ox += (x0 + cw / 2) - hc[0];
     F.render(doc, ch, { pose, expr: ex, view: v, box: { x0: x0 + 6, y0: y0 + 6, w: cw - 12, h: chh - 12 }, step: 1, light: ch.light || {}, lineScale: 0.95 });
     const lbl = NAMES[name] || name;
     doc.add('ui', `<rect x="${x0 + cw / 2 - lbl.length * 7.5 - 16}" y="${y0 + chh - 52}" width="${lbl.length * 15 + 32}" height="38" rx="19" fill="#1a1526" opacity="0.85"/><text x="${x0 + cw / 2}" y="${y0 + chh - 26}" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="22" fill="#f2e6cf">${lbl}</text>`);

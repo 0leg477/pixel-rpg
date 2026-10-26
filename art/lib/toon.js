@@ -114,7 +114,7 @@ function figure(R, doc, opt = {}) {
     // cel shadow (form + cast), slightly softened edge
     { fn: shadowV, fill: tn => tn.shadow, opacity: 1, blur: 0.6 * lw },
     // warm core band at the terminator on organic materials (subsurface scattering)
-    { fn: id => { const s = spec[R.mat1[id]]; if (!s.sss) return -K; const l = lam(id); return Math.min((s.t0 + 0.01 - l) * K, (l - (s.t0 - 0.12)) * K); }, fill: light.coreColor, opacity: 0.12, blur: 2.2 * lw, blend: 'normal' },
+    { fn: id => { const s = spec[R.mat1[id]]; if (!s.sss) return -K; const l = lam(id); return Math.min((s.t0 + 0.01 - l) * K, (l - (s.t0 - 0.12)) * K); }, fill: light.coreColor, opacity: 0.07, blur: 2.2 * lw, blend: 'normal' },
     // deep shadow gradient
     { fn: id => (-0.4 - lam(id)) * K, fill: tn => tn.deep, opacity: 0.45, blur: 7 * lw },
     // ambient occlusion in creases and contacts
@@ -130,7 +130,7 @@ function figure(R, doc, opt = {}) {
       return Math.min(facing, edge);
     }, fill: light.rimColor, opacity: light.rimOpacity || 0.75, blur: 0.7 * lw, blend: 'screen', k: 'rimK' },
     // specular on glossy materials
-    { fn: id => { const s = spec[R.mat1[id]]; if (!s.gloss) return -K; const nh = R.nx[id] * Hk[0] + R.ny[id] * Hk[1] + R.nz[id] * Hk[2]; return (nh - s.gloss) * K * 3; }, fill: '#ffffff', opacity: 0.75, blur: 0.9 * lw, blend: 'screen' },
+    { fn: id => { const s = spec[R.mat1[id]]; if (!s.gloss) return -K; const nh = R.nx[id] * Hk[0] + R.ny[id] * Hk[1] + R.nz[id] * Hk[2]; return (nh - s.gloss) * K * 3; }, fill: '#ffffff', opacity: 0.75, blur: 0.9 * lw, blend: 'screen', k: 'glossK' },
   ].filter(Boolean);
   for (const lb of labelShapes.filter(l => l.spec.shading === 'toon')) {
     const gi = lb.gi, mid = lb.mid;

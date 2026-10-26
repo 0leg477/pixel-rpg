@@ -9,13 +9,31 @@ const Cc = require('../lib/color');
 const pal = {
   fur: '#d6a466', cream: '#f6e4c4', stripe: '#9d6436', hair: '#161c3b', sheen: '#6a8be0',
   eye: '#1fc2b2', nose: '#c67f80', innerEar: '#e2a29b', pad: '#b9787a',
-  linen: '#e9e0cf', lapis: '#2347a0', gold: '#d9a640', turq: '#35b4a6', carn: '#b4452f', kohl: '#120e1c',
+  linen: '#d3c6ad', lapis: '#2347a0', gold: '#d9a640', turq: '#35b4a6', carn: '#b4452f', kohl: '#120e1c',
 };
 
 const tailCtrl = [[0, 5, -8], [-6, 13, -15], [-17, 15, -9], [-21, 6, 3], [-15, -2, 11], [-7, -4, 13]];
 
 const ch = {
   name: 'nefer', title: 'Нефер', species: 'cat', pal,
+  subtitle: 'кошка · жрица Бастет · ленивая, язвительная, кокетливая',
+  palNames: { fur: 'мех', cream: 'морда, горло', stripe: 'полоски табби', hair: 'волосы', eye: 'глаза', nose: 'нос', innerEar: 'уши внутри', linen: 'лён', lapis: 'лазурит', gold: 'золото', turq: 'бирюза', carn: 'сердолик' },
+  notes: [
+    'Форма-язык: мягкие S-кривые тела + острые стрелки глаз и кончики ушей.',
+    'Характер в лице: полуприкрытые веки, ухмылка, голова чуть набок.',
+    'Каре — тяжёлый блок чёрного; лицо открыто в окне чёлки.',
+    'Акцент (золото, лазурит) только у лица и кистей; лён — зона отдыха.',
+    'Табби-полоски на щеках, руках и хвосте; горло и морда кремовые.',
+    'Серьги-кольца прямо в ушах — отсылка к бронзовой кошке Бастет.',
+    'Пропорции: голова крупнее реализма (аниме-фурри), «песочные часы».',
+  ],
+  refDetails: () => [
+    { label: 'голова 3/4', target: b => b.head.anchors.cranium, zoom: 13, yaw: -0.45 },
+    { label: 'усех и пояс', target: b => G.tapply(b.body.anchors.chestT, [0, -36, 8]), zoom: 11, yaw: -0.25 },
+    { label: 'лапа и браслеты', target: b => G.tapply(b.body.anchors.handR, [0, 2, 0]), zoom: 11, yaw: -0.2, pitch: 0.05 },
+    { label: 'серьги в ушах', target: b => G.lerp(b.head.anchors.earR.base, b.head.anchors.earR.tip, 0.45), zoom: 13, yaw: 0.55 },
+  ],
+  icon: { expr: 'wink', accent: '#4fd1c5', ring: '#d9a640', yaw: -0.3, zoom: 4.1, cy: 0.53 },
   body: {
     headR: 12.5,
     bust: { r: [5.4, 5.1, 4.7] },
@@ -30,12 +48,11 @@ const ch = {
   bustScale: 8.2,
   hairLines: { lineColor: '#090b18', hiColor: '#4e6bb8', width: 0.08 },
   materials: {
-    fur: { base: pal.fur, sss: true }, innerEar: { base: pal.innerEar, edgeLine: false }, hair: { base: pal.hair, rimT: 0.05, t1: 0.3, hiK: 0.35, rimK: 0.8, gloss: 0.955 },
-    claw: { base: '#f5ecd8', gloss: 0.9 }, linen: { base: pal.linen, t0: 0.02, edgeLine: true, line: '#7d7064' }, 'hair:inner': { base: '#0b0e22', shading: 'flat' }, gold: { base: pal.gold, shading: 'metal' }, lapis: { base: pal.lapis, gloss: 0.9 },
+    fur: { base: pal.fur, sss: true }, innerEar: { base: pal.innerEar, edgeLine: false }, hair: { base: pal.hair, rimT: 0.05, t1: 0.3, hiK: 0.35, rimK: 0.8, gloss: 0.968, glossK: 0.6 },
+    claw: { base: '#f5ecd8', gloss: 0.9 }, linen: { base: pal.linen, t0: 0.02, t1: 0.6, edgeLine: true, line: '#6f6255' }, 'hair:inner': { base: '#0b0e22', shading: 'flat' }, gold: { base: pal.gold, shading: 'metal' }, lapis: { base: pal.lapis, gloss: 0.9 },
   },
   tufts: ({ Rs }) => [
     { parts: ['head.cheek', 'head.jaw'], amp: 0.22 * 12.5 * Rs.view.s, period: 0.3 * 12.5 * Rs.view.s, flow: [0, 1], lean: 0.9, where: n => n[1] > 0.0 },
-    { parts: ['tail'], amp: 0.28 * Rs.view.s, period: 1.9 * Rs.view.s, flow: [1, 0], lean: 0.7, inner: false },
   ],
   markings: ({ body, head }) => {
     const R = head.R, u = p => p.map(v => v / R);
@@ -85,9 +102,10 @@ const ch = {
   },
   materialFields: () => [
     // linen dress: straight neckline above the bust
-    { parts: ['torso.*'], fn: p => { const d = p[1] + 37.5 - 0.006 * p[0] * p[0]; return d > 0 ? { mat: 'linen', alt: 'fur', d } : { mat: 'fur', alt: 'linen', d: -d }; } },
+    { parts: ['torso.*'], fn: p => { const d = p[1] + 41 - 0.01 * p[0] * p[0]; return d > 0 ? { mat: 'linen', alt: 'fur', d } : { mat: 'fur', alt: 'linen', d: -d }; } },
   ],
   postShade: (doc, { Rs }) => '',
+  hideParts: () => ['legL.thigh', 'legL.shin', 'legR.thigh', 'legR.shin'],
   extraGroups: ({ body, head }) => {
     const out = [];
     const R = head.R;
@@ -103,18 +121,20 @@ const ch = {
     // ear hoops (pierced ears like the bronze Bastet cat)
     for (const s of ['L', 'R']) {
       const e = head.anchors['ear' + s]; if (!e) continue;
-      for (const k of [0.18, 0.34]) {
-        const at = G.add(G.add(e.base, G.mul(e.v, e.h * k)), G.mul(e.u, (e.s < 0 ? -1 : 1) * e.w * (0.95 - k * 0.6)));
-        out.push({ name: 'jewel.hoop' + s + k, k: 0.2, parts: [{ name: 'hoop', mat: 'gold', prims: C.torus(G.add(at, G.mul(e.v, -0.32)), e.u, 0.85, 0.16) }] });
+      // outer edge of the ear: the side of u that points away from the head centre
+      const away = G.dot(e.u, G.sub(e.base, head.anchors.cranium)) > 0 ? 1 : -1;
+      for (const k of [0.42, 0.56]) {
+        const at = G.add(G.add(e.base, G.mul(e.v, e.h * k)), G.mul(e.u, away * e.w * (1.02 - k * 0.95)));
+        out.push({ name: 'jewel.hoop' + s + k, k: 0.2, parts: [{ name: 'hoop', mat: 'gold', prims: C.torus(G.add(at, G.mul(e.u, away * 0.12)), e.v, 0.62, 0.15) }] });
       }
     }
     // linen skirt from the belt down
-    out.push(C.skirt(body.anchors.pelvisT, [[-14, 9.3, 7.7, 0.2], [-8, 12.0, 8.6, 0.3], [-2, 15.4, 10.0, 0], [4, 18.6, 11.6, -0.4], [14, 19.6, 12.2, 0], [40, 18.4, 12.0, 0.8], [78, 21, 14, 1.5]], { mat: 'linen' }));
+    out.push(C.skirt(body.anchors.pelvisT, [[-12.4, 9.4, 7.7, 0.2], [-8, 12.0, 8.6, 0.3], [-2, 15.4, 10.0, 0], [4, 17.6, 11.4, -0.4], [14, 17.4, 11.6, 0.2], [36, 14.8, 11.2, 1.2], [56, 13.8, 11.0, 1.8], [70, 15.4, 12.0, 2.2]], { mat: 'linen', pleats: 34, pleatAmp: 0.3 }));
     // arm bands and bracelets
     for (const s of ['L', 'R']) {
       const up = body.anchors['upper' + s], fo = body.anchors['fore' + s];
-      if (up) out.push({ name: 'jewel.arm' + s, k: 0.3, parts: [C.limbBand(up, 23, 0.36, 3.95, 1.5)] });
-      if (fo) out.push({ name: 'jewel.wrist' + s, k: 0.3, parts: [C.limbBand(fo, 20, 0.86, 2.85, 1.3), C.limbBand(fo, 20, 0.72, 3.1, 0.85)] });
+      if (up) out.push({ name: 'jewel.arm' + s, k: 0.3, parts: [C.limbBand(up, 23, 0.34, 4.45, 2.2)] });
+      if (fo) out.push({ name: 'jewel.wrist' + s, k: 0.3, parts: [C.limbBand(fo, 20, 0.88, 3.0, 1.6, { name: 'cuff1' }), C.limbBand(fo, 20, 0.73, 3.3, 0.9, { name: 'cuff2' })] });
     }
     return out;
   },
@@ -130,14 +150,20 @@ const ch = {
     flirty: { smile: 0.5, smirk: 0.2, open: 0.68, lowerLid: 0.2, gazeShift: [-0.35, 0.1], brow: { raise: 0.2 }, head: { roll: 0.22, yaw: 0.3, pitch: 0.05 } },
   },
   poses: {
+    ref: {
+      pelvis: { roll: 0.05 }, chest: { roll: -0.04 }, head: { pitch: 0.02 },
+      armL: { hand: [-21, 0, 4], pose: 'relaxed', palm: [1, 0, 0.3], pole: [-30, -20, -10] }, armR: { hand: [21, 0, 4], pose: 'relaxed', palm: [-1, 0, 0.3], pole: [30, -20, -10] },
+      legL: { foot: [-7, 79, 3] }, legR: { foot: [8, 79, 2] },
+      tailCtrl: [[0, 5, -8], [8, 14, -14], [20, 26, -12], [26, 44, -6], [22, 60, 0], [27, 70, 2]],
+    },
     bust: {
       pelvis: {}, chest: { yaw: 0.1 }, head: { yaw: 0.2 },
       armL: { hand: [-15, -2, 6], pose: 'relaxed' }, armR: { hand: [15, -2, 6], pose: 'relaxed' },
     },
     halfbody: {
-      pelvis: { roll: 0.07, yaw: -0.08 }, chest: { roll: -0.07, yaw: 0.12, pitch: -0.05 }, head: { yaw: 0.28, pitch: 0.06, roll: -0.14 },
+      pelvis: { roll: 0.17, yaw: -0.12, pos: [3.5, 0, 0] }, chest: { roll: -0.13, yaw: 0.16, pitch: -0.06 }, head: { yaw: 0.26, pitch: 0.06, roll: 0.1 },
       armL: { hand: [-4.5, -40, 11.5], pole: [-26, -20, -4], pose: 'elegant', palm: [0.6, 0.1, -0.8], finger: [0.55, -0.6, 0.45] },
-      armR: { hand: [16.5, -4, 3], pole: [36, -32, -18], pose: 'hip', palm: [-1, 0, 0.1], finger: [0, 1, -0.3] },
+      armR: { hand: [15.5, -6, 4.5], pole: [44, -30, -12], pose: 'hip', palm: [-1, 0, 0.15], finger: [-0.1, 1, -0.2] },
       hide: ['legL', 'legR'],
     },
   },
