@@ -21,7 +21,7 @@ function body(k = {}, extra = {}) {
     R(-15, mixW(10.0, (w + h) / 2), 6.6 + bel * 0.8, 0.5 + bel * 0.6), R(-11, mixW(12.8, (w + 2 * h) / 3), 7.2 + bel * 0.6, 0.2 + bel * 0.4),
     R(-6, 15.6 * h, 8.4, -0.4), R(-1, 17.4 * h, 9.4, -1.2), R(4, 17.0 * h, 9.8, -1.8), R(9, 13.8 * h, 8.6, -1.8)];
   return Body.deepMerge({
-    neck: { len: 5.2, r: 5.0, rTop: 4.5 },
+    neck: { len: 5.2, r: 4.4, rTop: 3.9 },
     torso,
     // shoulders lower than the jugular notch: the neck-to-shoulder line slopes down (trapezius)
     shoulder: { x: 11.6 * sh, y: -43.6, z: -1.2 },

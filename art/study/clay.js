@@ -28,7 +28,12 @@ for (const [i, yaw] of yawsArg.split(',').map(Number).entries()) {
   const v0 = viewOf({ yaw, s, ox: 0, oy: 0 });
   const c = toView(v0, target);
   const view = viewOf({ yaw, s, ox: W / 2 - c[0], oy: H / 2 - c[1] });
-  const R = new Raster({ x0: 0, y0: 0, w: W, h: H, step: 1 }).render(b.model, view);
+  let R;
+  if (ch.sculpt && process.env.SCULPT !== '0') {
+    const S = require('../lib/sdf');
+    global._sc = global._sc || S.sculpt(b.model, { h: ch.sculpt.h || 0.45 });
+    R = new Raster({ x0: 0, y0: 0, w: W, h: H, step: 1 }).renderMeshes(b.model, view, global._sc);
+  } else R = new Raster({ x0: 0, y0: 0, w: W, h: H, step: 1 }).render(b.model, view);
   const buf = Buffer.alloc(W * H * 3);
   const Lv = G.mvec(view.R, L);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {

@@ -189,7 +189,7 @@ function mesh(field, bb, { h = 0.4, coarse = 4 } = {}) {
 const DEFAULT_SETS = [
   { name: 'body', test: n => /^(torso|bust|arm[LR]|hand[LR]|leg[LR]|tail)/.test(n), k: 1.6, h: 1,
     override: n => (/\.f\d|\.thumb|\.c\d|\.ct/.test(n) ? 0.12 : /^hand[LR]$/.test(n) ? 0.8 : n === 'bust' ? 3.2 : null) },
-  { name: 'head', test: n => /^head/.test(n), k: 0.5, h: 0.6 },
+  { name: 'head', test: n => /^head/.test(n), k: 0.9, h: 0.6 },
   { name: 'hair', test: n => n.startsWith('hair'), k: 0.6, h: 0.6 },
   { name: 'acc', test: () => true, k: 0, h: 0.6 },
 ];

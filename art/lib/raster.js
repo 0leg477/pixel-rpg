@@ -305,9 +305,8 @@ class Raster {
         const a = V[ia], b = V[ib], c = V[ic];
         const area = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
         if (Math.abs(area) < 1e-9) continue;
-        // cull triangles that face away: view space (x right, y down, z toward the viewer) is right-handed,
-        // so an outward-wound triangle facing the viewer has positive screen area
-        if (area < 0) continue;
+        // no back-face culling: the depth test already keeps the nearest surface, and culling opened
+        // pinholes where surface-nets quads fold in tight creases
         const x0 = Math.max(0, Math.floor(this.gx(Math.min(a[0], b[0], c[0])))), x1 = Math.min(W - 1, Math.ceil(this.gx(Math.max(a[0], b[0], c[0]))));
         const y0 = Math.max(0, Math.floor(this.gy(Math.min(a[1], b[1], c[1])))), y1 = Math.min(H - 1, Math.ceil(this.gy(Math.max(a[1], b[1], c[1]))));
         for (let j = y0; j <= y1; j++) {

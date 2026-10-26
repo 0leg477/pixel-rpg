@@ -58,7 +58,7 @@ const ch = {
   bustScale: 6.2, emoCy: 0.5,
   hairLines: { lineColor: '#090b18', hiColor: '#5a78d0', width: 0.08 },
   materials: {
-    fur: { base: pal.fur, sss: true, gloss: 0.978, glossK: 0.2 }, cream: { base: pal.cream, sss: true, gloss: 0.96, glossK: 0.5 },
+    fur: { base: pal.fur, sss: true, gloss: 0.978, glossK: 0.2, t0: -0.06 }, cream: { base: pal.cream, sss: true, gloss: 0.96, glossK: 0.5 },
     innerEar: { base: pal.innerEar, edgeLine: false },
     hair: { base: pal.hair, rimT: 0.05, t1: 0.3, rimK: 0.8, gloss: 0.962, glossK: 0.7 }, 'hair:inner': { base: '#0b0e26', shading: 'flat' },
     claw: { base: '#f5ecd8', gloss: 0.9 }, linen: { base: pal.linen, t0: 0.02, t1: 0.55, gloss: 0.975, glossK: 0.35, line: '#7a6b5a' },

@@ -23,24 +23,24 @@ const SPECIES = {
     // two upper-lip pads, a small chin set back; the skull sits up and back, the jaw runs to the ear.
     prims: () => [
       ['cranium', B.ell([0, -0.42, -0.12], [0.76, 0.6, 0.68])],
-      // forehead: a near-vertical face plane above the eyes (a round skull alone slopes the face down)
-      ['brow', B.ell([0, -0.52, 0.26], [0.58, 0.5, 0.4])],
-      // cheekbones: widest at eye level, the face narrows from here to the chin (V shape)
-      ...both(s => ['cheek', B.ell([0.4 * s, -0.24, 0.2], [0.36, 0.25, 0.32], G.euler(0.4 * s, 0, 0.2 * s))]),
-      ['jaw', B.ellBetween([0, -0.08, 0.02], [0, 0.34, 0.5], 0.3, 0.2)],
-      // snout as a wedge: a wide base that grows out of the cheeks, the bridge on top, nose and lip pads in front
-      ['muzzle', B.ell([0, 0.02, 0.52], [0.36, 0.25, 0.38])],
-      ['muzzle', B.ellBetween([0, -0.42, 0.56], [0, -0.08, 0.82], 0.12, 0.1)],
-      ['muzzle', B.ell([0, -0.04, 0.8], [0.14, 0.09, 0.11])],
-      ...both(s => ['muzzle', B.ell([0.105 * s, 0.09, 0.73], [0.15, 0.1, 0.13])]),
-      ['muzzle', B.ell([0, 0.26, 0.6], [0.14, 0.11, 0.13])],
+      // face mask: a broad, fairly flat front plane from the brow down to the cheekbones
+      ['brow', B.ell([0, -0.36, 0.18], [0.62, 0.5, 0.46])],
+      // cheekbones: wide and shallow (bulbous cheeks dug pockets around the eyes)
+      ...both(s => ['cheek', B.ell([0.34 * s, -0.12, 0.2], [0.38, 0.3, 0.3], G.euler(0.4 * s, 0, 0))]),
+      ['jaw', B.ellBetween([0, -0.08, 0.04], [0, 0.3, 0.46], 0.28, 0.2)],
+      // muzzle: a soft wedge growing out of the face, a wide shallow bridge, small pads, small chin
+      ['muzzle', B.ell([0, -0.02, 0.48], [0.3, 0.2, 0.32])],
+      ['muzzle', B.ellBetween([0, -0.38, 0.52], [0, -0.1, 0.74], 0.14, 0.08)],
+      ['muzzle', B.ell([0, -0.06, 0.76], [0.13, 0.085, 0.1])],
+      ...both(s => ['muzzle', B.ell([0.095 * s, 0.07, 0.7], [0.13, 0.085, 0.1])]),
+      ['muzzle', B.ell([0, 0.24, 0.58], [0.12, 0.09, 0.1])],
     ],
-    k: 0.14, partK: 0.1,
+    k: 0.32, partK: 0.22,
     ear: { base: [0.46, -0.8, -0.24], w: 0.5, h: 0.98, out: 0.4, back: -0.14, poly: [[-1, 0], [-0.55, 0.45], [-0.05, 1], [0.35, 0.5], [1, 0.02], [0, -0.1]], cup: [0.6, 0.2] },
-    eyes: { theta: 0.48, phi: -0.33, w: 0.25, r: 0.97, tilt: 0.12, pupil: 'slit' },
-    nose: { at: [0, -0.05], shape: 'cat', w: 0.105, h: 0.07, face: 0.6, z: 1.2 },
+    eyes: { theta: 0.47, phi: -0.3, w: 0.31, r: 0.97, tilt: 0.12, pupil: 'slit' },
+    nose: { at: [0, -0.06], shape: 'cat', w: 0.105, h: 0.07, face: 0.6, z: 1.2 },
     // a small mouth under the nose (no philtrum / ':3' loop — it read as a mustache at pin-up scale)
-    mouth: { center: [0, 0.05], corner: [0.075, 0.04], depth: 0.012, kind: 'canid', dimples: false },
+    mouth: { center: [0, 0.03], corner: [0.075, 0.02], depth: 0.012, kind: 'canid', dimples: false },
     whiskers: { from: [[0.16, 0.05], [0.16, 0.09]], len: 0.45, spread: 0.2 },
     muzzleBox: [0, 0.48, 0.74, 0.42, 0.3, 0.38],
   },
