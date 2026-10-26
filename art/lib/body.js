@@ -8,7 +8,7 @@ const B = require('./build');
 // ---------------- default proportions (an 8-head pin-up figure, headR = 10) ----------------
 const DEFAULT = {
   headR: 11,
-  neck: { len: 8.5, r: 4.7, rTop: 4.1 },
+  neck: { len: 6.5, r: 4.9, rTop: 4.4 },
   torso: [ // y, half width, half depth, z shift
     [-49, 5.8, 4.8, -2.0], [-45, 10.6, 6.6, -1.4], [-40, 11.6, 8.2, -0.4], [-35, 11.6, 8.8, 0.2], [-30, 11.0, 8.6, 0.3],
     [-25, 9.8, 7.8, 0.0], [-19, 8.5, 7.0, -0.4], [-15, 8.4, 6.8, -0.3], [-10, 9.8, 7.3, 0.1], [-5, 13.0, 8.4, 0.0],
@@ -21,7 +21,7 @@ const DEFAULT = {
   hips: { w: 15.8, d: 10.4, y: 0 },
   glutes: { r: [8.6, 9.6, 8.2], x: 7.0, y: 4, z: -4.6 },
   abs: 0, muscle: 0.2,
-  arm: { upper: 25, fore: 22, r: [4.3, 3.6, 3.0, 3.25, 3.45, 2.3] },
+  arm: { upper: 23, fore: 20, r: [4.5, 3.8, 3.15, 3.4, 3.55, 2.45] },
   hand: { scale: 1, paw: true, claws: true, fingers: 4 },
   leg: { thigh: 40, shin: 33, meta: 15, toes: 7, digitigrade: true, hipX: 8.6, r: [9.4, 7.6, 5.0, 4.6, 5.2, 2.8, 2.3] },
   groundY: 79,
@@ -75,10 +75,10 @@ function handPrims(spec, poseName, mirror) {
   const k = spec.scale || 1, paw = spec.paw;
   const sx = mirror ? -1 : 1;
   const parts = [];
-  const palm = [B.ell([0, 4.4 * k, 0.1 * k], [3.5 * k * (paw ? 1.08 : 1), 4.5 * k, 1.5 * k * (paw ? 1.15 : 1)])];
+  const palm = [B.ell([0, 4.4 * k, 0.1 * k], [3.6 * k * (paw ? 1.1 : 1), 4.6 * k, 1.6 * k * (paw ? 1.2 : 1)])];
   parts.push({ name: 'palm', prims: palm });
   const fingers = [];
-  const xs = [2.35, 0.8, -0.75, -2.25], lens = [6.4, 7.0, 6.6, 5.1].map(v => v * (paw ? 0.92 : 1)), rad = paw ? 1.05 : 0.88;
+  const xs = [2.4, 0.82, -0.78, -2.3], lens = [6.2, 6.8, 6.4, 5.0].map(v => v * (paw ? 0.8 : 1)), rad = paw ? 1.18 : 0.9;
   for (let f = 0; f < 4; f++) {
     const base = [sx * xs[f] * k, 8.4 * k - Math.abs(xs[f]) * 0.25 * k, 0.15 * k];
     let dir = G.norm([sx * (xs[f] * 0.06 + (f - 1.5) * hp.spread * 0.6), 1, 0]);

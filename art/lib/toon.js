@@ -64,22 +64,26 @@ function figure(R, doc, opt = {}) {
   const allClip = doc.clip(D(allShape), { rule: 'nonzero' });
 
   // ---------- 2. markings (3D fields evaluated on the visible surface) ----------
-  for (const mk of (opt.markings || [])) {
+  const drawMarking = (mk) => {
     const pis = new Set(R.parts.filter(p => mk.parts.includes(p.name)).map(p => p.pi));
-    if (!pis.size) continue;
+    if (!pis.size) return null;
     const f = R.mapField(id => {
       const pi = R.part1[id];
       if (!pis.has(pi)) return -R.step * 2;
-      return mk.fn(R.toLocal(pi, R.pointOf(id)), id) * (mk.scale || R.view.s);
+      return mk.fn(R.toLocal(pi, R.pointOf(id)), id, R) * (mk.scale || R.view.s);
     }, { outside: -R.step * 2 });
     const rings = shapesOf(R, f, { smooth: mk.smooth == null ? 2 : mk.smooth });
-    if (!rings.length) continue;
+    if (!rings.length) return null;
     // clip to the visible region of the groups that own these parts
     const gis = new Set(R.parts.filter(p => pis.has(p.pi)).map(p => p.gi));
     const own = P.union(labelShapes.filter(l => gis.has(l.gi)).flatMap(l => P.normalize(l.rings)));
+    if (!own.length) return null;
     const clip = doc.clip(D(own), { rule: 'nonzero' });
-    out.push(g({ 'clip-path': clip }, path(D(rings), { fill: mk.color, opacity: mk.opacity == null ? 1 : mk.opacity, 'fill-rule': 'evenodd', filter: mk.blur ? doc.blur(mk.blur) : null })));
-  }
+    const body = [path(D(rings), { 'clip-path': clip, fill: mk.color, opacity: mk.opacity == null ? 1 : mk.opacity, 'fill-rule': 'evenodd', filter: mk.blur ? doc.blur(mk.blur) : null, style: mk.blend ? `mix-blend-mode:${mk.blend}` : null })];
+    if (mk.edge) for (const r of rings) { const [a, b] = L.band(r, mk.edgeWidth || 1.0 * lw, { step: 1.2 * lw }); body.push(path(G.polyD(a) + G.polyD(b), { 'clip-path': clip, fill: mk.edge, 'fill-rule': 'evenodd', opacity: mk.edgeOpacity || 0.9 })); }
+    return body.join('');
+  };
+  for (const mk of (opt.markings || [])) if (mk.stage !== 'post') { const s = drawMarking(mk); if (s) out.push(s); }
   // extra flat overlays drawn under the shading (e.g. painted patterns) supplied by caller
   if (opt.underShade) out.push(opt.underShade);
 
@@ -88,7 +92,8 @@ function figure(R, doc, opt = {}) {
   // group edge and the result is clipped by the group's smooth region: no stair-steps at seams.
   const isToon = id => { const s = spec[R.mat1[id]]; return s && s.shading === 'toon'; };
   const lam = id => R.nx[id] * Lk[0] + R.ny[id] * Lk[1] + R.nz[id] * Lk[2];
-  const cast = opt.castShadows === false ? null : R.shadowMap(Lk, { bias: 1.2 * R.view.s / 5 });
+  const shadowDist = opt.shadowDist || {}; // { groupName: max occluder distance in model units }
+  const cast = opt.castShadows === false ? null : R.shadowMap(Lk, { bias: 1.2 * R.view.s / 5, maxDist: gi => { const v = shadowDist[R.groups[gi].name]; return v == null ? null : v * R.view.s; } });
   const ao = opt.ao === false ? null : R.ambientOcclusion(opt.aoRadius || 12);
   const rimW = (opt.rimWidth || 3.2) * lw;
   const sdist = R.silhouetteDistance();
@@ -100,45 +105,52 @@ function figure(R, doc, opt = {}) {
   };
   const LAYERS = [
     // halftone: soft gradient on the turning side
-    { fn: id => (spec[R.mat1[id]].t1 - lam(id)) * K, fill: light.tint, opacity: 0.2, blur: 8 * lw },
+    { fn: id => (spec[R.mat1[id]].t1 - lam(id)) * K, fill: tn => tn.mid, opacity: 0.32, blur: 8 * lw },
     // cel shadow (form + cast), slightly softened edge
-    { fn: shadowV, fill: light.tint, opacity: 0.9, blur: 0.6 * lw },
+    { fn: shadowV, fill: tn => tn.shadow, opacity: 1, blur: 0.6 * lw },
     // warm core band at the terminator on organic materials (subsurface scattering)
     { fn: id => { const s = spec[R.mat1[id]]; if (!s.sss) return -K; const l = lam(id); return Math.min((s.t0 + 0.01 - l) * K, (l - (s.t0 - 0.12)) * K); }, fill: light.coreColor, opacity: 0.12, blur: 2.2 * lw, blend: 'normal' },
     // deep shadow gradient
-    { fn: id => (-0.4 - lam(id)) * K, fill: light.deepTint, opacity: 0.3, blur: 7 * lw },
+    { fn: id => (-0.4 - lam(id)) * K, fill: tn => tn.deep, opacity: 0.45, blur: 7 * lw },
     // ambient occlusion in creases and contacts
     ao && { fn: id => (ao[id] - 0.16) * 120, fill: light.aoColor, opacity: 0.32, blur: 4 * lw },
     // reflected light from the floor inside the shadow
     { fn: id => Math.min(shadowV(id), (R.nx[id] * Lb[0] + R.ny[id] * Lb[1] + R.nz[id] * Lb[2] - 0.45) * K), fill: light.bounceColor, opacity: 0.2, blur: 5 * lw, blend: 'screen' },
     // soft key highlight
-    { fn: id => (lam(id) - 0.86) * K, fill: light.hiColor, opacity: 0.26, blur: 7 * lw, blend: 'screen' },
+    { fn: id => (lam(id) - 0.86) * K, fill: light.hiColor, opacity: 0.26, blur: 7 * lw, blend: 'screen', k: 'hiK' },
     // rim light: constant-width band along the silhouette on the side facing the back light
     { fn: id => {
       const facing = (R.nx[id] * Lr[0] + R.ny[id] * Lr[1] + R.nz[id] * Lr[2] - (spec[R.mat1[id]].rimT || 0.12)) * K;
       const edge = (rimW * (0.4 + 0.6 * Math.max(0, R.nx[id] * Lr[0] + R.ny[id] * Lr[1])) - sdist[id]) * 4;
       return Math.min(facing, edge);
-    }, fill: light.rimColor, opacity: light.rimOpacity || 0.75, blur: 0.7 * lw, blend: 'screen' },
+    }, fill: light.rimColor, opacity: light.rimOpacity || 0.75, blur: 0.7 * lw, blend: 'screen', k: 'rimK' },
     // specular on glossy materials
     { fn: id => { const s = spec[R.mat1[id]]; if (!s.gloss) return -K; const nh = R.nx[id] * Hk[0] + R.ny[id] * Hk[1] + R.nz[id] * Hk[2]; return (nh - s.gloss) * K * 3; }, fill: '#ffffff', opacity: 0.75, blur: 0.9 * lw, blend: 'screen' },
   ].filter(Boolean);
-  const groupsDrawn = [...new Set(labelShapes.filter(l => l.spec.shading === 'toon').map(l => l.gi))];
-  for (const gi of groupsDrawn) {
-    const own = labelShapes.filter(l => l.gi === gi && l.spec.shading === 'toon');
-    const region = P.union(own.flatMap(l => P.normalize(l.rings)));
+  for (const lb of labelShapes.filter(l => l.spec.shading === 'toon')) {
+    const gi = lb.gi, mid = lb.mid;
+    const region = P.normalize(lb.rings);
     if (!region.length) continue;
     const clip = doc.clip(D(region), { rule: 'nonzero' });
     const box = subgrid(R, G.bbox(region), 4);
-    const inG = id => R.g1[id] === gi && isToon(id);
+    const inG = id => R.g1[id] === gi && R.mat1[id] === mid;
     const layers = [];
+    const tints = groupTints(lb.spec, light);
     for (const ly of LAYERS) {
       const f = box.field(ly.fn, inG, -K);
       const rings = M.shapes(f, box.W, box.H, { x0: box.x0, y0: box.y0, step: R.step, smooth: 2, eps: 0.2, minArea: 2 });
       if (!rings.length) continue;
-      layers.push(path(D(rings), { fill: ly.fill, 'fill-rule': 'evenodd', opacity: ly.opacity, filter: ly.blur ? doc.blur(ly.blur) : null, style: (ly.blend || 'multiply') === 'normal' ? null : `mix-blend-mode:${ly.blend || 'multiply'}` }));
+      const fill = typeof ly.fill === 'function' ? ly.fill(tints) : ly.fill;
+      const dark = Cc.lightness(lb.spec.fill) < 0.36 ? 0.45 : 1; // screen layers lift dark materials too much
+      const opk = (ly.k && lb.spec[ly.k] != null ? lb.spec[ly.k] : 1) * (ly.blend === 'screen' && ly.k ? dark : 1);
+      if (opk <= 0) continue;
+      layers.push(path(D(rings), { 'clip-path': clip, fill, 'fill-rule': 'evenodd', opacity: ly.opacity * opk, filter: ly.blur ? doc.blur(ly.blur) : null, style: (ly.blend || 'multiply') === 'normal' ? null : `mix-blend-mode:${ly.blend || 'multiply'}` }));
     }
-    out.push(g({ 'clip-path': clip }, layers));
+    out.push(...layers);
   }
+
+  for (const mk of (opt.markings || [])) if (mk.stage === 'post') { const s = drawMarking(mk); if (s) out.push(s); }
+  if (opt.postShade) out.push(typeof opt.postShade === 'function' ? opt.postShade() : opt.postShade);
 
   // ---------- 4. metals (matcap-like reflections) ----------
   const metalLabels = labelShapes.filter(l => l.spec.shading === 'metal');
@@ -152,7 +164,7 @@ function figure(R, doc, opt = {}) {
       for (const mid of mats) {
         const sp = spec[mid];
         const rings = shapesOf(R, R.mapField(id => R.mat1[id] === mid ? fn(id) : -K, { where: isMetal, outside: -K }), { smooth: 2 });
-        if (rings.length) ml.push(path(D(rings), { fill: colorFn(sp), 'fill-rule': 'evenodd', ...o }));
+        if (rings.length) ml.push(path(D(rings), { 'clip-path': mclip, fill: colorFn(sp), 'fill-rule': 'evenodd', ...o }));
       }
     };
     const env = id => R.ny[id] + 0.35 * R.nx[id] * Lk[0];
@@ -161,7 +173,7 @@ function figure(R, doc, opt = {}) {
     metalLayer(id => (-env(id) - 0.42) * K, sp => sp.ramp.hi, { opacity: 0.95 });
     metalLayer(id => { const nh = R.nx[id] * Hk[0] + R.ny[id] * Hk[1] + R.nz[id] * Hk[2]; return (nh - 0.93) * K * 3; }, () => '#fffbe8', { opacity: 0.95, filter: doc.blur(0.6 * lw) });
     metalLayer(id => (R.nx[id] * Lr[0] + R.ny[id] * Lr[1] + R.nz[id] * Lr[2] - 0.35) * K, () => light.rimColor, { opacity: 0.7, style: 'mix-blend-mode:screen' });
-    out.push(g({ 'clip-path': mclip }, ml));
+    out.push(...ml);
   }
 
   // ---------- 5. lines ----------
@@ -194,7 +206,7 @@ function figure(R, doc, opt = {}) {
         let best = null, bd = 1e9; for (let i = 0; i < pts.length; i += 2) { const d = G.d2(pts[i], c0); if (d < bd) { bd = d; best = i; } }
         const rid = best == null ? -1 : R.idAt(pts[best][0] - nrm[best][0] * 2.5, pts[best][1] - nrm[best][1] * 2.5);
         const inShadow = rid >= 0 && R.g1[rid] >= 0 && isToon(rid) && shadowV(rid) > 0;
-        const fc = inShadow ? Cc.multiply(col, light.tint, 0.9) : col;
+        const fc = inShadow ? Cc.multiply(col, groupTints(spec[R.mat1[rid]], light).shadow, 1) : col;
         tuftFills.push(path(G.polyD(sp), { fill: fc, stroke: fc, 'stroke-width': 0.6 }));
       }
       pts = tp; nrm = L.leftNormals(pts, true);
@@ -256,7 +268,7 @@ function figure(R, doc, opt = {}) {
           const mid = idx[Math.floor(idx.length / 2)], pm2 = pts[mid];
           const rid = R.idAt(pm2[0] - nrm[mid][0] * 2.5, pm2[1] - nrm[mid][1] * 2.5);
           const fcol0 = tf.color || spec[part.mid].fill;
-          const fcol = rid >= 0 && R.g1[rid] >= 0 && isToon(rid) && shadowV(rid) > 0 ? Cc.multiply(fcol0, light.tint, 0.9) : fcol0;
+          const fcol = rid >= 0 && R.g1[rid] >= 0 && isToon(rid) && shadowV(rid) > 0 ? Cc.multiply(fcol0, groupTints(spec[part.mid], light).shadow, 1) : fcol0;
           tuftFills.push(path(G.polyD(fillPoly), { fill: fcol, stroke: fcol, 'stroke-width': 0.5 }));
           seg = tp;
         }
@@ -295,6 +307,21 @@ function figure(R, doc, opt = {}) {
   const svg = g({ class: opt.name || 'figure' }, out);
   if (opt.add !== false) doc.add(layer, svg);
   return { svg, labelShapes, silhouette: silRings, allShape, clip: allClip, cast, spec };
+}
+
+// Multiply tints that turn a group's dominant material into its own hue-shifted ramp colours,
+// pulled a little toward the scene tint so every material still shares one light.
+function groupTints(spec, light) {
+  const base = Cc.hexToRgb(spec.fill), sceneT = Cc.hexToRgb(light.tint);
+  const ratio = (target, k) => {
+    const t = Cc.hexToRgb(target);
+    return Cc.rgbToHex(t.map((v, i) => {
+      const r = Math.min(1, v / Math.max(0.03, base[i]));
+      return r * (1 - k) + sceneT[i] * k;
+    }));
+  };
+  const r = spec.ramp;
+  return { shadow: spec.shadowTint || ratio(r.shadow, 0.18), mid: ratio(r.mid, 0.1), deep: ratio(r.deep, 0.2) };
 }
 
 // Fur tufts: displace a run of contour points into curved spikes. mask[i] in [0,1] says where.

@@ -78,7 +78,7 @@ function ramp(base, { warmLight = true, depth = 1 } = {}) {
     hi: shift(base, { dL: 0.10 * depth, cK: 0.80, toward: hot, dh: 14 }),
     light: shift(base, { dL: 0.05 * depth, cK: 0.92, toward: hot, dh: 7 }),
     mid: shift(base, { dL: -0.05 * depth, cK: 1.04, toward: cold, dh: 6 }),
-    shadow: shift(base, { dL: -(low ? 0.07 : 0.14) * depth, cK: 1.12, toward: cold, dh: 18 }),
+    shadow: shift(base, { dL: -(low ? 0.07 : 0.15) * depth, cK: 1.18, toward: cold, dh: 22 }),
     core: shift(base, { dL: -0.06 * depth, cK: 1.45, toward: RED, dh: 16 }), // warm terminator band (subsurface)
     deep: shift(base, { dL: -(low ? 0.12 : 0.26) * depth, cK: 1.05, toward: cold, dh: 26 }),
     line: shift(base, { L: Math.min(0.24, L * 0.3 + 0.03), cK: C > 0.04 ? 0.9 : 1, toward: cold, dh: 28 }),

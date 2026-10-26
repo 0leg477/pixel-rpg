@@ -254,6 +254,13 @@ class Raster {
           const l = Math.hypot(nsx[gi2], nsy[gi2], nsz[gi2]) || 1;
           this.nx[id] = nsx[gi2] / l; this.ny[id] = nsy[gi2] / l; this.nz[id] = nsz[gi2] / l;
           this.mat1[id] = mt[gi2]; this.mat2[id] = m2[gi2]; this.mf1[id] = z2m[gi2] <= NEG ? 1e6 : zt[gi2] - z2m[gi2]; this.part1[id] = pt[gi2];
+          // material assigned by a field on the surface (garments): overrides the part material
+          const tp = pt[gi2] >= 0 ? this.parts[pt[gi2]] : null;
+          if (tp && tp.matField) {
+            const loc = this.toLocal(tp.pi, [this.px(i), this.py(j), z]);
+            const mf = tp.matField(loc);
+            if (mf) { this.mat1[id] = this.matId(mf.mat); this.mat2[id] = this.matId(mf.alt); this.mf1[id] = Math.min(this.mf1[id], Math.max(0.01, mf.d * view.s)); }
+          }
         } else if (z > this.z2[id]) { this.z2[id] = z; this.g2[id] = gi; }
       }
     });
@@ -353,7 +360,7 @@ class Raster {
 
   // Shadow map: render the model again from the light (orthographic) and compare depths.
   // Returns a continuous field (occluder height above the point, minus bias) per screen pixel.
-  shadowMap(Lview, { bias = 1.5, smooth = 1 } = {}) {
+  shadowMap(Lview, { bias = 1.5, smooth = 1, maxDist = null } = {}) {
     const view = this.view, s = view.s;
     const Lw = G.norm(G.mvec(G.transpose(view.R), Lview)); // light direction in model space
     const Rl = G.rotBetween(Lw, [0, 0, 1]);
@@ -384,7 +391,10 @@ class Raster {
       const acc = (k, ww) => { if (LR.g1[k] >= 0 && LR.g1[k] !== own) { zs += LR.z1[k] * ww; w += ww; } };
       acc(b * LW + a, (1 - fx) * (1 - fy)); acc(b * LW + a + 1, fx * (1 - fy)); acc((b + 1) * LW + a, (1 - fx) * fy); acc((b + 1) * LW + a + 1, fx * fy);
       if (w < 0.3) continue;
-      out[id] = Math.min(8, zs / w - qz - bias) * Math.min(1, w * 1.6);
+      let occ = zs / w - qz - bias;
+      const md = maxDist ? maxDist(own) : null; // receivers that only take shadows from nearby occluders (faces under hair)
+      if (md != null) occ = Math.min(occ, md - (zs / w - qz));
+      out[id] = Math.min(8, occ) * Math.min(1, w * 1.6);
     }
     for (let it = 0; it < smooth; it++) {
       const src = out.slice(), W = this.W;
