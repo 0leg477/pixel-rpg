@@ -50,7 +50,7 @@ function eye(doc, frame, params = {}) {
 
   // ---- eyeshadow: a soft coloured band over the upper lid, strongest toward the outer corner ----
   if (p.eyeshadow) {
-    const g0 = geometry(p);
+    const g0 = geometry(p.closed ? { ...p, open: 0.28 } : p); // closed eyes: a thin band hugging the lid line
     const band = g0.upper.concat(g0.upper.slice().reverse().map(q => [q[0] * 1.06 + 0.04, q[1] - 0.32 - 0.22 * Math.max(0, (q[0] + 1) / 2)]));
     out.push(path(G.polyD(mapAll(band)), { fill: p.eyeshadow, opacity: p.eyeshadowOpacity ?? 0.75, filter: doc.blur(scale * 0.09) }));
   }
