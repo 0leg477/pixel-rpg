@@ -263,7 +263,7 @@ function build(specIn = {}, pose = {}, mats = {}) {
       const { mid: knee, end: hk } = ik(hip, hock, lg.thigh, lg.shin, pole);
       const r = lg.r;
       parts = [
-        { name: 'leg' + side + '.thigh', frame: segFrame(hip, knee), prims: B.sweep(G.catmull([hip, G.lerp(hip, knee, 0.5), knee], { seg: 3 }), profile([r[0], r[1], r[2]]), { spacing: 0.22 }) },
+        { name: 'leg' + side + '.thigh', frame: segFrame(hip, knee), prims: B.sweep(G.catmull([hip, G.lerp(hip, knee, 0.5), knee], { seg: 3 }), profile(lg.thighR || [r[0], r[1], r[2]]), { spacing: 0.22 }) },
         { name: 'leg' + side + '.shin', frame: segFrame(knee, hk), prims: B.sweep([knee, G.lerp(knee, hk, 0.3), hk], profile([r[3], r[4], (r[4] + r[5]) / 2, r[5]]), { spacing: 0.22 }) },
         { name: 'leg' + side + '.meta', frame: segFrame(hk, toe), prims: B.sweep([hk, toe], profile([r[5] * 0.95, r[6]]), { spacing: 0.22 }) },
         { name: 'leg' + side + '.paw', frame: segFrame(hk, toe), prims: [B.ell(G.add(toe, [0, -1.6, 2.2]), [3.2, 2.0, 4.0]), ...[-1, 0, 1].map(k2 => B.ell(G.add(toe, [k2 * 1.9, -0.6, 5.2 - Math.abs(k2) * 0.7]), [1.25, 1.2, 1.6]))] },
@@ -275,7 +275,7 @@ function build(specIn = {}, pose = {}, mats = {}) {
       const { mid: knee, end: an } = ik(hip, ankle, lg.thigh, lg.shin + lg.meta * 0.4, pole);
       const r = lg.r;
       parts = [
-        { name: 'leg' + side + '.thigh', frame: segFrame(hip, knee), prims: B.sweep(G.catmull([hip, G.lerp(hip, knee, 0.5), knee], { seg: 3 }), profile([r[0], r[1], r[2]]), { spacing: 0.22 }) },
+        { name: 'leg' + side + '.thigh', frame: segFrame(hip, knee), prims: B.sweep(G.catmull([hip, G.lerp(hip, knee, 0.5), knee], { seg: 3 }), profile(lg.thighR || [r[0], r[1], r[2]]), { spacing: 0.22 }) },
         { name: 'leg' + side + '.shin', frame: segFrame(knee, an), prims: B.sweep([knee, G.lerp(knee, an, 0.3), an], profile([r[3], r[4], (r[4] + r[5]) / 2, r[5]]), { spacing: 0.22 }) },
         { name: 'leg' + side + '.foot', frame: segFrame(an, foot), prims: [B.ellBetween(G.add(an, [0, 1, -1.5]), G.add(foot, [0, -1.2, 10]), 3.4, 2.4, [1, 0, 0])] },
       ];

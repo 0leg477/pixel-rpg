@@ -71,12 +71,12 @@ function build(style, head, opt = {}) {
     const nb = o.bangClumps || 9;
     for (let i = 0; i < nb; i++) {
       const f = i / (nb - 1) * 2 - 1, lon1 = f * (o.bangSpread ?? 0.78);
-      const cl = clump(cc, rr, { lat0: -1.25, lon0: lon1 * 0.35, lat1: latOf(w.bang) + 0.02 * Math.cos(i * 2.1), lon1, w: 0.33, t: 0.055, lift: 0.0, tip: 0.85, bulge: 0.035 });
+      const cl = clump(cc, rr, { lat0: -1.25, lon0: lon1 * 0.35, lat1: latOf(w.bang) + 0.025 * Math.cos(i * 2.1), lon1, w: 0.33 * 9 / nb + 0.04, t: 0.055, lift: 0.0, tip: o.bangTip ?? 0.85, bulge: 0.035 });
       parts.push({ name: 'hair.bang' + i, mat, frame, prims: cl.prims.map(X), k: 0.04 * R });
     }
     // side curtains: vertical clumps falling to the cut line
     for (const s of [-1, 1]) for (let i = 0; i < 4; i++) {
-      const lon = s * (1.0 + i * 0.32);
+      const lon = s * (1.0 + Math.max(0, w.x - 0.9) * 1.1 + i * 0.3); // curtains start behind the face window
       const cl = clump(cc, [1.05, 1.02, 1.02], { lat0: -1.0, lon0: lon * 0.85, lat1: latOf(cut) + 0.06, lon1: lon + s * 0.04, w: 0.38, t: 0.06, lift: 0.0, tip: 0.85, bulge: 0.035, curl: -0.08, n: 18 });
       parts.push({ name: 'hair.side' + (s < 0 ? 'L' : 'R') + i, mat, frame, prims: cl.prims.map(X), k: 0.04 * R });
     }

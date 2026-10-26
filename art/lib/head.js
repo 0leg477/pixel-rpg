@@ -17,23 +17,23 @@ const both = (fn) => [fn(-1), fn(1)];
 // prims: list of [name, prim] in unit space. ears: ear spec. eyes: placement. nose/mouth: shapes and anchors.
 const SPECIES = {
   cat: {
-    // anime-furry feline: V-shaped face with a pointed chin, short smooth snout (nose at its tip),
-    // large frontal almond eyes; no puffy ':3' whisker pads
+    // anime-furry cat girl: big round cranium, short lower face, eyes large and low, the muzzle only a
+    // small bump with a tiny nose right above a small mouth, cheek fluff at the jaw corners
     prims: () => [
-      ['cranium', B.ell([0, -0.06, -0.06], [0.96, 0.9, 0.92])],
-      ...both(s => ['cheek', B.ell([0.34 * s, 0.25, 0.3], [0.42, 0.4, 0.44])]),
-      ['jaw', B.ellBetween([0, 0.34, 0.22], [0, 0.72, 0.5], 0.27, 0.24)],
-      ['muzzle', B.ellBetween([0, 0.16, 0.62], [0, 0.4, 1.06], 0.21, 0.17)],
-      ['muzzle', B.ellBetween([0, -0.06, 0.74], [0, 0.3, 1.02], 0.13, 0.11)],
-      ['muzzle', B.ell([0, 0.49, 0.86], [0.16, 0.1, 0.13])],
+      ['cranium', B.ell([0, -0.1, -0.04], [1.0, 0.96, 0.95])],
+      ...both(s => ['cheek', B.ell([0.36 * s, 0.2, 0.3], [0.48, 0.4, 0.46])]),
+      ['jaw', B.ellBetween([0, 0.28, 0.24], [0, 0.56, 0.5], 0.3, 0.26)],
+      ['muzzle', B.ell([0, 0.34, 0.8], [0.2, 0.15, 0.17])],
+      ['muzzle', B.ellBetween([0, 0.1, 0.78], [0, 0.3, 0.9], 0.1, 0.08)],
+      ['muzzle', B.ell([0, 0.47, 0.72], [0.12, 0.08, 0.12])],
     ],
-    k: 0.085,
-    ear: { base: [0.56, -0.62, -0.04], w: 0.5, h: 1.0, out: 0.36, back: -0.12, poly: [[-1, 0], [-0.55, 0.45], [-0.05, 1], [0.35, 0.5], [1, 0.02], [0, -0.1]], cup: [0.6, 0.2] },
-    eyes: { theta: 0.4, phi: 0.02, w: 0.36, r: 0.97, tilt: 0.2, pupil: 'slit' },
-    nose: { at: [0, 0.31], shape: 'cat', w: 0.15, h: 0.1, face: 0.5 },
-    // a small smile line under the nose (no philtrum / ':3' loop — it read as a mustache at pin-up scale)
-    mouth: { center: [0, 0.5], corner: [0.095, 0.485], depth: 0.015, kind: 'canid', dimples: false },
-    whiskers: { from: [[0.16, 0.42], [0.16, 0.47]], len: 0.5, spread: 0.2 },
+    k: 0.09,
+    ear: { base: [0.56, -0.66, -0.06], w: 0.52, h: 0.98, out: 0.36, back: -0.12, poly: [[-1, 0], [-0.55, 0.45], [-0.05, 1], [0.35, 0.5], [1, 0.02], [0, -0.1]], cup: [0.6, 0.2] },
+    eyes: { theta: 0.47, phi: 0.1, w: 0.4, r: 0.97, tilt: 0.12, pupil: 'slit' },
+    nose: { at: [0, 0.29], shape: 'cat', w: 0.11, h: 0.075, face: 0.6 },
+    // a small mouth under the nose (no philtrum / ':3' loop — it read as a mustache at pin-up scale)
+    mouth: { center: [0, 0.43], corner: [0.075, 0.42], depth: 0.012, kind: 'canid', dimples: false },
+    whiskers: { from: [[0.14, 0.36], [0.14, 0.4]], len: 0.45, spread: 0.2 },
     muzzleBox: [0, 0.48, 0.74, 0.42, 0.3, 0.38],
   },
   fennec: {
@@ -307,7 +307,8 @@ function features(doc, Rs, head, look = {}) {
   if (expr.blush > 0) {
     const bc = look.blushColor || '#ff6f86';
     for (const s of [-1, 1]) {
-      const hit = onSurface(head.prims, [s * 0.5, 0.26, 0], [s * 0.65, 0.05, 1]);
+      const bp = look.blushAt || [0.44, 0.34];
+      const hit = onSurface(head.prims, [s * bp[0], bp[1], 0], [s * 0.65, 0.05, 1]);
       if (!hit) continue;
       const pw = head.toWorld(G.add(hit.p, G.mul(hit.n, 0.02))), nw = G.norm(head.dirWorld(hit.n));
       if (G.dot(G.mvec(view.R, nw), [0, 0, 1]) < 0.15) continue;

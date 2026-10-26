@@ -48,6 +48,13 @@ function eye(doc, frame, params = {}) {
     ink(bp, scale * b.width, L.taperProfile({ start: 0.08, end: 0.75 }), browCol);
   }
 
+  // ---- eyeshadow: a soft coloured band over the upper lid, strongest toward the outer corner ----
+  if (p.eyeshadow) {
+    const g0 = geometry(p);
+    const band = g0.upper.concat(g0.upper.slice().reverse().map(q => [q[0] * 1.06 + 0.04, q[1] - 0.32 - 0.22 * Math.max(0, (q[0] + 1) / 2)]));
+    out.push(path(G.polyD(mapAll(band)), { fill: p.eyeshadow, opacity: p.eyeshadowOpacity ?? 0.75, filter: doc.blur(scale * 0.09) }));
+  }
+
   if (p.closed === 'happy' || p.closed === 'calm') {
     // closed eye: one thick arc with lashes at the outer end
     const up = p.closed === 'happy' ? -0.55 : 0.35;

@@ -14,9 +14,21 @@ const pal = {
 };
 
 const tailCtrl = [[0, 5, -8], [-6, 13, -15], [-17, 15, -9], [-21, 6, 3], [-15, -2, 11], [-7, -4, 13]];
-const skirtTop = -6.5;
-// V-neck crop top: neckline dips to the centre, straps at the shoulders; hem under the bust
-const topField = p => { const ax = Math.abs(p[0]); const neck = ax < 6.5 ? -37.5 - 1.25 * ax : -46.5; return Math.min(p[1] - neck, -27.5 - p[1] + 0.012 * p[0] * p[0]); };
+// triangle bikini cups (chest coords): base under the bust, apex toward the halter strap; the cups meet at the centre
+const cupField = p => { if (p[2] < 0.5) return -1; const sx = p[0] < 0 ? -1 : 1, dx = p[0] - sx * 6.6, dy = p[1] + 33.0; return Math.min(4.9 - dy, dy + 7.0 - Math.abs(dx) * 1.0, 6.6 - Math.abs(dx)); };
+// halter straps from the cup apex to the back of the neck
+const strapField = p => { if (p[1] > -39.5 || p[1] < -49) return -1; const t = (p[1] + 39.5) / -9.5, x = 6.6 - 3.2 * t; return 0.42 - Math.abs(Math.abs(p[0]) - x); };
+// bikini bottom (pelvis coords): low front edge, high-cut leg openings, thin side ties along the top edge
+// the top edge rises at the back to cover the glutes (their tops sit well above the hip line)
+const bottomTop = (x, z = 10) => { const back = G.smoothstep(6, -3, z); return (2.2 + 0.012 * x * x) * (1 - back) + (-8.4 + 0.02 * x * x) * back; };
+// the back is full-coverage (leg line drops low behind), the front is a classic bikini cut
+const bottomBody = p => {
+  const ax = Math.abs(p[0]), top = bottomTop(p[0], p[2]);
+  const back = G.smoothstep(6, -3, p[2]);
+  const leg = (10.8 - 0.4 * ax) * (1 - back) + (17.5 - 0.2 * ax) * back;
+  return Math.min(p[1] - top, leg - p[1]);
+};
+const bottomField = p => Math.max(bottomBody(p), Math.min(0.5 - Math.abs(p[1] - bottomTop(p[0], p[2]) - 0.45), 0.6));
 
 const ch = {
   name: 'nefer', title: 'Нефер', species: 'cat', pal, style: 'pinup',
@@ -24,44 +36,46 @@ const ch = {
   subtitle: 'кошка · жрица Бастет · ленивая, язвительная, кокетливая',
   palNames: { fur: 'мех', cream: 'горло, грудка', stripe: 'полоски табби', hair: 'волосы', eye: 'глаза', nose: 'нос', innerEar: 'уши внутри', linen: 'лён', lapis: 'лазурит', gold: 'золото', turq: 'бирюза' },
   notes: [
-    'Пин-ап «песочные часы»: полная грудь, узкая талия, широкие бёдра, сильные бёдра ног.',
-    'Мех непрерывен: кремовое горло переходит в пучок на груди поверх выреза.',
+    'Пин-ап «песочные часы»: крупная высокая грудь, очень узкая талия, широкие бёдра, бёдра ног толще талии.',
+    'Мех непрерывен: кремовое горло переходит в пучок на груди.',
     'Полоски табби обвивают руки, бёдра и хвост — голова и тело одного зверя.',
-    'Лицо: короткая мордочка, острый подбородок, тяжёлые веки и длинные стрелки.',
+    'Лицо: огромные низко посаженные глаза, тяжёлые веки, бирюзовые тени, мордочка-бугорок.',
     'Каре с тупой чёлкой до бровей; уши большие, торчат над волосами.',
-    'Акцент: лазурит и золото у лица, на поясе и в разрезе юбки.',
+    'Наряд жрицы-танцовщицы: бикини из льна с золотом, передники с лазуритом, браслеты на бёдрах.',
   ],
   refDetails: () => [
     { label: 'голова 3/4', target: b => b.head.anchors.cranium, zoom: 13, yaw: -0.45 },
-    { label: 'вырез и пучок на груди', target: b => G.tapply(b.body.anchors.chestT, [0, -40, 7]), zoom: 10, yaw: -0.25 },
+    { label: 'лиф и колье', target: b => G.tapply(b.body.anchors.chestT, [0, -38, 7]), zoom: 9, yaw: -0.25 },
     { label: 'лапа и браслеты', target: b => G.tapply(b.body.anchors.handR, [0, 2, 0]), zoom: 11, yaw: -0.2, pitch: 0.05 },
-    { label: 'разрез и пояс', target: b => G.tapply(b.body.anchors.pelvisT, [-8, 8, 8]), zoom: 6.5, yaw: -0.4 },
+    { label: 'пояс и передник', target: b => G.tapply(b.body.anchors.pelvisT, [0, 6, 10]), zoom: 6.5, yaw: -0.3 },
   ],
-  icon: { expr: 'wink', accent: '#4fd1c5', ring: '#e8b444', yaw: -0.3, zoom: 4.3, cy: 0.52 },
+  icon: { expr: 'wink', accent: '#4fd1c5', ring: '#e8b444', yaw: -0.3, zoom: 3.9, cy: 0.5 },
   body: {
-    headR: 13.4,
-    neck: { len: 6.0, r: 4.6, rTop: 4.2 },
+    headR: 14.6,
+    neck: { len: 5.6, r: 4.4, rTop: 4.0 },
     torso: [
-      [-49, 6.0, 4.8, -2.0], [-45, 11.0, 6.8, -1.4], [-40, 12.0, 8.4, -0.2], [-35, 12.0, 9.0, 0.4], [-30, 11.0, 8.6, 0.4],
-      [-25, 9.2, 7.4, 0.0], [-19, 7.9, 6.5, -0.4], [-15, 8.1, 6.5, -0.3], [-10, 10.6, 7.4, 0.1], [-5, 14.6, 8.8, 0.0],
-      [0, 17.2, 10.0, -0.6], [5, 16.8, 10.4, -1.2], [9, 13.6, 9.0, -1.0]],
-    shoulder: { x: 12.2 },
-    bust: { r: [6.5, 6.1, 5.8], x: 6.0, y: -33.2, z: 5.4, splay: 0.22, droop: 0.08, separate: true },
-    glutes: { r: [9.6, 10.6, 9.2], x: 7.6 },
-    arm: { upper: 22.5, fore: 19.5, r: [4.1, 3.6, 3.0, 3.3, 3.35, 2.4] },
-    leg: { thigh: 41, shin: 31, meta: 15, hipX: 8.8, r: [11.2, 9.0, 5.6, 5.0, 5.4, 2.9, 2.4] },
-    tail: { r: [2.6, 2.45, 2.3, 2.15, 1.8], ctrl: tailCtrl },
+      [-49, 5.6, 4.6, -2.0], [-45, 10.2, 6.6, -1.4], [-40, 11.2, 8.0, -0.2], [-35, 11.0, 8.4, 0.4], [-30, 10.0, 8.0, 0.4],
+      [-25, 8.2, 7.0, 0.2], [-19, 7.0, 6.2, -0.2], [-15, 7.4, 6.5, 0.1], [-10, 10.8, 7.8, 0.5], [-5, 15.6, 9.3, 0.5],
+      [0, 18.8, 10.6, -0.3], [5, 18.4, 11.0, -1.2], [9, 14.6, 9.4, -1.0]],
+    shoulder: { x: 11.4 },
+    bust: { r: [7.8, 7.4, 7.0], x: 6.6, y: -33.4, z: 6.0, splay: 0.2, droop: 0.1, separate: true },
+    glutes: { r: [10.8, 11.6, 10.2], x: 8.2 },
+    arm: { upper: 21, fore: 18.5, r: [3.7, 3.2, 2.6, 2.95, 3.0, 2.1] },
+    // thigh thickest a quarter of the way down; a small sphere at the joint so the pelvis (and the bikini on it) stays visible
+    leg: { thigh: 40, shin: 30, meta: 14, hipX: 9.0, r: [10.0, 10.0, 5.2, 4.8, 5.4, 2.7, 2.2], thighR: [8.6, 11.4, 10.2, 7.6, 5.4] },
+    groundY: 77,
+    tail: { r: [2.7, 2.55, 2.4, 2.25, 2.0], ctrl: tailCtrl },
     hand: { paw: true, claws: true },
   },
-  head: { eyes: { w: 0.39 } },
-  eye: { iris: pal.eye, lashColor: pal.kohl, lidColor: '#1c1222', lash: 0.3, wing: 0.9, wingUp: 0.45, lowerWing: 0.5, tilt: 0.22,
+  head: { eyes: {} },
+  eye: { iris: pal.eye, lashColor: pal.kohl, lidColor: '#1c1222', lash: 0.34, wing: 0.85, wingUp: 0.45, lowerWing: 0.45, tilt: 0.14, eyeshadow: '#2fa8c8', irisR: 0.68, irisRy: 0.74,
     brow: { color: '#1a1f4a', width: 0.1, y: -1.55 } },
   noseColor: pal.nose, mouthLine: '#3b2226', whiskers: false,
-  hair: { style: 'bob', opts: { bang: -0.36, winX: 0.98, winZ: -0.1, cut: 0.72, sheen: '#7d9cff', bangSpread: 0.86, ring: true } },
-  bustScale: 7.0, emoCy: 0.5,
+  hair: { style: 'bob', opts: { bang: -0.36, winX: 1.12, winZ: -0.1, cut: 0.72, sheen: '#7d9cff', bangSpread: 0.9, bangClumps: 13, bangTip: 0.62, ring: true } },
+  bustScale: 6.2, emoCy: 0.5,
   hairLines: { lineColor: '#090b18', hiColor: '#5a78d0', width: 0.08 },
   materials: {
-    fur: { base: pal.fur, sss: true, gloss: 0.966, glossK: 0.4 }, cream: { base: pal.cream, sss: true, gloss: 0.96, glossK: 0.5 },
+    fur: { base: pal.fur, sss: true, gloss: 0.962, glossK: 0.55 }, cream: { base: pal.cream, sss: true, gloss: 0.96, glossK: 0.5 },
     innerEar: { base: pal.innerEar, edgeLine: false },
     hair: { base: pal.hair, rimT: 0.05, t1: 0.3, rimK: 0.8, gloss: 0.962, glossK: 0.7 }, 'hair:inner': { base: '#0b0e26', shading: 'flat' },
     claw: { base: '#f5ecd8', gloss: 0.9 }, linen: { base: pal.linen, t0: 0.02, t1: 0.55, gloss: 0.975, glossK: 0.35, line: '#7a6b5a' },
@@ -96,7 +110,9 @@ const ch = {
       } });
       m.push(...C.pawPads(s, pal.pad, body.anchors['tipPads' + s]));
       // thigh stripes (seen through the skirt slit)
-      m.push({ parts: ['leg' + s + '.thigh'], color: pal.stripe, opacity: 0.8, fn: p => { let v = -9; for (const c0 of [10, 17, 24, 31]) v = Math.max(v, 0.8 * (1 + 0.3 * Math.sin(p[0] * 0.7)) - Math.abs(p[1] - c0 - 1.2 * Math.sin(p[2] * 0.4))); return Math.min(v, (s === 'L' ? -p[0] : p[0]) * 0.3 + p[2] * 0.2 + 1.2); } });
+      const hipS = body.anchors['hip' + s], kneeS = body.anchors['knee' + s];
+      const frS = hipS && kneeS ? require('../lib/body').segFrame(hipS, kneeS) : null, invP = G.tinv(body.anchors.pelvisT);
+      m.push({ parts: ['leg' + s + '.thigh'], color: pal.stripe, opacity: 0.8, fn: p => { if (frS && bottomBody(G.tapply(invP, G.tapply(frS, p))) > -0.3) return -1; let v = -9; for (const c0 of [10, 17, 24, 31]) v = Math.max(v, 0.8 * (1 + 0.3 * Math.sin(p[0] * 0.7)) - Math.abs(p[1] - c0 - 1.2 * Math.sin(p[2] * 0.4))); return Math.min(v, (s === 'L' ? -p[0] : p[0]) * 0.3 + p[2] * 0.2 + 1.2); } });
     }
     // tail rings and a dark tip
     m.push({ parts: ['tail'], color: pal.stripe, fn: p => { const { s, total } = tailS(p); return Math.max(Math.abs(Math.sin(s * 0.42)) - 0.72, (s - total + 6) * 0.3) * 3; } });
@@ -104,22 +120,34 @@ const ch = {
     m.push({ parts: ['torso.chest', 'torso.clav', 'neck'], color: pal.cream, fn: p => {
       if (p[2] < 1) return -1;
       const ax = Math.abs(p[0]), tri = 1 - Math.abs(((ax / 1.5) % 1) * 2 - 1);
-      return Math.min(4.6 - ax - Math.max(0, p[1] + 48) * 0.28, -40.2 + 1.7 * tri - p[1]) * 1.4;
+      return Math.min(3.6 - ax - Math.max(0, p[1] + 48) * 0.3, -42.2 + 1.5 * tri - p[1]) * 1.4;
     } });
-    // gold trim on the crop top edges
-    m.push({ parts: [...C.TORSO, 'bustL', 'bustR'], color: pal.gold, edge: Cc.ramp(pal.gold).line, edgeWidth: 0.5, fn: p => { const d = topField(p); return Math.min(d, 0.65 - d); } });
-    // low belt: lapis band with gold borders sitting on the hips
-    m.push({ parts: [...C.TORSO, 'skirt'], color: pal.gold, edge: Cc.ramp(pal.gold).line, edgeWidth: 0.6, fn: p => 1.5 - Math.abs(p[1] - skirtTop - 0.5 - 0.012 * p[0] * p[0]) });
-    m.push({ parts: [...C.TORSO, 'skirt'], color: pal.lapis, fn: p => 0.85 - Math.abs(p[1] - skirtTop - 0.5 - 0.012 * p[0] * p[0]) });
-    // skirt: lapis-and-gold hem band along the slit edge
-    m.push({ parts: ['skirt'], color: pal.lapis, fn: p => { const a = Math.atan2(p[0], p[2]); const hw = 0.16 + 0.011 * Math.max(0, p[1] - 4); return Math.min(0.13 - Math.abs(Math.abs(a + 0.9) - hw - 0.07), p[1] - 4); } });
+    // gold edges on the bikini cups, gold halter straps and under-band
+    m.push({ parts: [...C.TORSO, 'bustL', 'bustR'], color: pal.gold, edge: Cc.ramp(pal.gold).line, edgeWidth: 0.45, fn: p => { const d = cupField(p); return Math.min(d, 0.55 - d); } });
+    m.push({ parts: [...C.TORSO, 'bustL', 'bustR', 'neck'], color: pal.gold, edge: Cc.ramp(pal.gold).line, edgeWidth: 0.4, fn: strapField });
+    m.push({ parts: ['torso.chest', 'torso.waist'], color: pal.gold, edge: Cc.ramp(pal.gold).line, edgeWidth: 0.4, fn: p => (p[2] > 4 ? -1 : 0.38 - Math.abs(p[1] + 27.6)) });
+    // navel and a soft centre line on the belly
+    m.push({ parts: ['torso.waist', 'torso.pelvis'], color: '#9a5a2a', opacity: 0.75, fn: p => (p[2] < 3 ? -1 : 0.5 - Math.hypot(p[0] / 0.55, (p[1] + 9.5) / 0.9)) });
+    m.push({ parts: ['torso.waist'], color: '#b8783a', opacity: 0.3, fn: p => (p[2] < 3 ? -1 : Math.min(0.16 - Math.abs(p[0]), p[1] + 26, -12 - p[1])) });
+    // low belt on the hips: gold with lapis inlay
+    const beltY = p => bottomTop(p[0], p[2]) + 0.15;
+    m.push({ parts: [...C.TORSO, 'legL.thigh', 'legR.thigh'], color: pal.gold, edge: Cc.ramp(pal.gold).line, edgeWidth: 0.5, fn: p => 1.2 - Math.abs(p[1] - beltY(p)) });
+    m.push({ parts: [...C.TORSO], color: pal.lapis, fn: p => Math.min(0.6 - Math.abs(p[1] - beltY(p)), 0.3 - Math.abs(Math.sin(Math.atan2(p[0], p[2]) * 11)) * 0.35 + 0.1) });
     return m;
   },
-  materialFields: () => [
-    { parts: ['torso.*', 'bustL', 'bustR'], fn: p => { const d = topField(p); return d > 0 ? { mat: 'linen', alt: 'fur', d } : { mat: 'fur', alt: 'linen', d: -d }; } },
+  materialFields: ({ body }) => [
+    { parts: ['torso.*', 'bustL', 'bustR'], fn: p => { const d = cupField(p); return d > 0 ? { mat: 'linen', alt: 'fur', d } : null; } },
+    { parts: ['torso.pelvis', 'torso.glute'], fn: p => { const d = bottomField(p); return d > 0 ? { mat: 'linen', alt: 'fur', d } : null; } },
+    // the bikini continues onto the tops of the thighs: evaluate the same field in pelvis space
+    ...['L', 'R'].map(s => {
+      const hip = body.anchors['hip' + s], knee = body.anchors['knee' + s];
+      if (!hip || !knee) return null;
+      const fr = require('../lib/body').segFrame(hip, knee), inv = G.tinv(body.anchors.pelvisT);
+      return { parts: ['leg' + s + '.thigh'], fn: p => { const q = G.tapply(inv, G.tapply(fr, p)); const d = bottomBody(q); return d > 0 ? { mat: 'linen', alt: 'fur', d } : null; } };
+    }).filter(Boolean),
   ],
   postShade: () => '',
-  hideParts: () => ['legR.thigh', 'legR.shin'],
+  hideParts: () => [],
   extraGroups: ({ body, head }) => {
     const out = [];
     const R = head.R, a = body.anchors;
@@ -137,13 +165,17 @@ const ch = {
     out.push({ name: 'jewel.choker', k: 0.2, parts: [{ name: 'choker', mat: 'gold', prims: C.torus(cc, nd, 4.75, 0.42) }] });
     const fwd = G.norm(G.mvec(a.chestT.R, [0, 0, 1]));
     out.push({ name: 'jewel.drop', k: 0.1, line: 'always', parts: [{ name: 'drop', mat: 'lapis', prims: [B.ellBetween(G.add(cc, G.add(G.mul(fwd, 4.6), G.mul(nd, -0.6))), G.add(cc, G.add(G.mul(fwd, 4.9), G.mul(nd, -2.6))), 0.75, 0.45)] }] });
-    // long linen skirt from a low waist, high slit on her left
-    const slit = p => { const a2 = Math.atan2(p[0], p[2]); const hw = 0.16 + 0.011 * Math.max(0, p[1] - 4); return Math.max(4 - p[1], Math.abs(a2 + 0.9) - hw); };
-    // deep enough at the back to contain the glutes (they poked through)
-    const sk = C.skirt(a.pelvisT, [[skirtTop, 15.8, 10.6, -1.0], [-1, 17.8, 12.4, -1.8], [5, 18.8, 13.6, -2.0], [12, 18.6, 13.4, -1.4], [30, 16.2, 11.6, 0.6], [54, 14.8, 11.0, 1.6], [72, 16.0, 12.0, 2.2]], { mat: 'linen', pleats: 30, pleatAmp: 0.28 });
-    const keep0 = sk.parts[0].keep;
-    sk.parts[0].keep = p => Math.min(keep0(p), slit(p));
-    out.push(sk);
+    // lapis amulet hanging from the belt at the front (instead of aprons: they cut into the forward thigh)
+    const pT = a.pelvisT;
+    const am0 = G.tapply(pT, [0, 1.4, 10.9]), am1 = G.tapply(pT, [0, 4.6, 11.6]);
+    out.push({ name: 'jewel.amulet', k: 0.1, line: 'always', parts: [{ name: 'amulet', mat: 'lapis', prims: [B.ellBetween(am0, am1, 1.5, 0.6)] }] });
+    out.push({ name: 'jewel.amuletRim', k: 0.1, parts: [{ name: 'amuletRim', mat: 'gold', prims: [B.ellBetween(G.add(am0, G.mvec(pT.R, [0, -0.3, -0.25])), G.add(am1, G.mvec(pT.R, [0, 0.35, -0.25])), 1.85, 0.5)] }] });
+    // gold bands high on the thighs
+    const Body = require('../lib/body');
+    for (const s of ['L', 'R']) {
+      const hip = a['hip' + s], knee = a['knee' + s];
+      if (hip && knee) { const fr = Body.segFrame(hip, knee); out.push({ name: 'jewel.thigh' + s, k: 0.3, parts: [C.limbBand(fr, G.len(G.sub(knee, hip)), 0.45, 11.7, 1.5, { th: 0.6, flare: 0 })] }); }
+    }
     // arm bands and bracelets
     for (const s of ['L', 'R']) {
       const up = a['upper' + s], fo = a['fore' + s];
@@ -155,7 +187,7 @@ const ch = {
   expressions: {
     neutral: { smile: 0.25, open: 0.82, lowerLid: 0.08 },
     lazy: { smile: 0.25, open: 0.45, lowerLid: 0.15, brow: { raise: -0.15 }, head: { roll: -0.2, pitch: 0.08, yaw: 0.2 }, ears: { droop: 0.25 } },
-    smirk: { smile: 0.4, smirk: 0.55, open: 0.66, lowerLid: 0.16, blush: 0.35, brow: { raise: 0.1 }, browSide: { R: { raise: 0.45, angle: -0.2 } }, head: { roll: -0.12, yaw: 0.25 } },
+    smirk: { smile: 0.4, smirk: 0.55, open: 0.66, lowerLid: 0.16, blush: 0.7, brow: { raise: 0.1 }, browSide: { R: { raise: 0.45, angle: -0.2 } }, head: { roll: -0.12, yaw: 0.25 } },
     wink: { smile: 0.65, smirk: 0.3, wink: 'R', open: 0.85, blush: 0.4, head: { roll: 0.16, yaw: 0.2 }, ears: { perk: 0.6 } },
     laugh: { smile: 0.85, mouthOpen: 0.55, closed: 'happy', head: { pitch: -0.12, roll: 0.1 }, ears: { perk: 0.4 } },
     annoyed: { smile: -0.4, open: 0.5, lowerLid: 0.3, brow: { angle: 0.6 }, gazeShift: [0.55, 0], head: { yaw: -0.25, roll: 0.05 }, ears: { flat: 0.7 } },
@@ -168,7 +200,7 @@ const ch = {
     ref: {
       pelvis: { roll: 0.05 }, chest: { roll: -0.04 }, head: { pitch: 0.02 },
       armL: { hand: [-21, 0, 4], pose: 'relaxed', palm: [1, 0, 0.3], pole: [-30, -20, -10] }, armR: { hand: [21, 0, 4], pose: 'relaxed', palm: [-1, 0, 0.3], pole: [30, -20, -10] },
-      legL: { foot: [-8, 79, 5] }, legR: { foot: [8, 79, 2] },
+      legL: { foot: [-8, 77, 5] }, legR: { foot: [8, 77, 2] },
       tailCtrl: [[0, 5, -8], [8, 14, -14], [20, 26, -12], [26, 44, -6], [22, 60, 0], [27, 70, 2]],
     },
     bust: {
@@ -176,15 +208,14 @@ const ch = {
       armL: { hand: [-15, -2, 6], pose: 'relaxed' }, armR: { hand: [15, -2, 6], pose: 'relaxed' },
     },
     halfbody: {
-      pelvis: { roll: 0.16, yaw: -0.18, pos: [3, 0, 0] }, chest: { roll: -0.14, yaw: 0.2, pitch: -0.06 }, head: { yaw: 0.26, pitch: 0.06, roll: 0.16 },
-      // pin-up: one hand behind the head (elbow high), the other on the hip
-      armR: { hand: [5, -63, -5], pole: [30, -70, 2], pose: 'relaxed', palm: [-0.4, 0.2, -0.9], finger: [-1, -0.2, 0.1] },
-      // the other hand rests on the bare thigh at the slit, fingers down
-      armL: { hand: [-15.5, 6, 10.5], pole: [-44, -24, -12], pose: 'elegant', palm: [0.85, 0.1, -0.5], finger: [0.15, 1, 0.25] },
+      // contrapposto: weight on her right leg, hip thrust out, shoulders counter-tilted
+      pelvis: { roll: 0.2, yaw: -0.22, pos: [3.5, 0, 0] }, chest: { roll: -0.17, yaw: 0.22, pitch: -0.07 }, head: { yaw: 0.3, pitch: 0.05, roll: 0.18 },
+      armR: { hand: [5, -64, -6], pole: [30, -72, 2], pose: 'relaxed', palm: [-0.4, 0.2, -0.9], finger: [-1, -0.2, 0.1] },
+      armL: { hand: [-18.5, -3, 4.5], pole: [-44, -28, -14], pose: 'hip', palm: [1, 0, 0.1], finger: [0.25, 0.65, 0.7] },
       tailCtrl: [[0, 5, -8], [9, 11, -14], [19, 8, -12], [25, -2, -5], [23, -12, 3], [17, -18, 8]],
-      legL: { foot: [-12, 79, 13] }, legR: { foot: [9, 79, -2] },
+      legL: { foot: [-3, 77, 14] }, legR: { foot: [11, 77, -2] },
     },
   },
-  halfbodyView: { yaw: -0.5, s: 8.0, oy: 830 },
+  halfbodyView: { yaw: -0.48, s: 7.4, oy: 760 },
 };
 module.exports = ch;
