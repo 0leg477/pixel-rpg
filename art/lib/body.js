@@ -184,7 +184,10 @@ function build(specIn = {}, pose = {}, mats = {}) {
   // head frame: cranium centre above the neck top, rotated by the head pose
   const headR = rot(hd.yaw || 0, hd.pitch || 0, hd.roll || 0);
   const headRW = G.mmul(chestT.R, G.mmul(neckLean, headR));
-  const headCenter = G.add(neckTop, G.mvec(headRW, [0, -sp.headR * 0.62, -sp.headR * 0.18]));
+  // headOffset: where the cranium centre sits above the neck top, in head radii (faces built higher on the
+  // skull sit lower on the neck so the jaw overlaps it)
+  const ho = sp.headOffset || [0, -0.62, -0.18];
+  const headCenter = G.add(neckTop, G.mvec(headRW, ho.map(v => v * sp.headR)));
   anchors.headT = { R: headRW, t: headCenter };
   anchors.neckTop = neckTop; anchors.neckBase = neckBase;
 
